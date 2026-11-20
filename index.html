@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Quest</title>
+<style>
+:root{--bg:#0f1220;--card:#181c2f;--card2:#20253d;--ink:#e8eaf6;--mute:#9aa0c3;--acc:#7c9cff;--ok:#3ecf8e;--bad:#ff6b6b;--gold:#ffc857}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:860px;margin:0 auto;padding:20px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+h1{font-size:22px;margin:0}h2{margin:.2em 0 .6em}h3{margin:1.2em 0 .4em;color:var(--mute);font-size:14px;text-transform:uppercase;letter-spacing:.08em}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.pill{background:var(--card);padding:6px 12px;border-radius:999px;font-size:14px}
+.bar{height:8px;background:var(--card2);border-radius:9px;overflow:hidden;margin:6px 0 14px}.bar>i{display:block;height:100%;background:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+button{font:inherit;color:inherit;cursor:pointer;border:0}
+.tile{background:var(--card);border-radius:12px;padding:12px;text-align:left;border:2px solid transparent;min-height:84px}
+.tile:hover,.tile:focus-visible{border-color:var(--acc);outline:none}
+.tile small{color:var(--mute);display:block}.tile .st{color:var(--gold);letter-spacing:2px}
+.tile.next{border-color:var(--gold)}
+.card{background:var(--card);border-radius:14px;padding:20px;margin-bottom:14px}
+.btn{background:var(--acc);color:#0b0e1a;font-weight:600;padding:10px 18px;border-radius:10px}
+.btn.ghost{background:var(--card2);color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.opt{display:block;width:100%;text-align:left;background:var(--card2);padding:12px 14px;border-radius:10px;margin:8px 0;border:2px solid transparent}
+.opt:hover:not(:disabled),.opt:focus-visible{border-color:var(--acc);outline:none}
+.opt.ok{border-color:var(--ok);background:#173b2e}.opt.bad{border-color:var(--bad);background:#3d1f25}
+.opt kbd{color:var(--mute);margin-right:8px}
+.why{border-left:4px solid var(--acc);padding:10px 14px;background:var(--card2);border-radius:0 10px 10px 0;margin-top:12px}
+.why.ok{border-color:var(--ok)}.why.bad{border-color:var(--bad)}
+ul.learn li{margin:8px 0}
+textarea{width:100%;min-height:130px;background:var(--card2);color:var(--ink);border:1px solid #333a5c;border-radius:10px;padding:10px;font:inherit}
+label.pt{display:flex;gap:10px;align-items:flex-start;background:var(--card2);padding:10px;border-radius:8px;margin:6px 0;cursor:pointer}
+.mute{color:var(--mute)}a{color:var(--acc)}
+.big{font-size:40px;margin:0}
+.dg{background:var(--card2);border-radius:12px;padding:12px;margin-top:14px}
+.dg-h{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+.dg svg{width:100%;height:auto;display:block;margin:8px 0}
+.dg .nd{transition:opacity .4s}.dg .nd.hid{opacity:0}.dg .nd.dead{opacity:.3}
+.dg .nd rect{fill:#2a3050;stroke:#3d4570;stroke-width:2;transition:fill .3s,stroke .3s}
+.dg .nd.good rect{stroke:var(--ok);fill:#173b2e}.dg .nd.bad rect{stroke:var(--bad);fill:#3d1f25}
+.dg .ed{stroke:#3d4570;stroke-width:2;fill:none;stroke-dasharray:5 5;transition:stroke .3s}.dg .ed.on{stroke:var(--acc);stroke-dasharray:none}
+.dg text{fill:var(--ink);font-size:14px;font-weight:500;text-anchor:middle}.dg text.em{font-size:24px}
+.dg circle{fill:var(--gold)}
+.dg ol{margin:4px 0 0;padding-left:24px;color:var(--mute)}.dg li{margin:3px 0}.dg li.cur{color:var(--ink);font-weight:600}
+.btn.sm{padding:5px 12px;font-size:13px}
+.slide{font-size:19px;line-height:1.6;min-height:120px}
+.dots{display:flex;gap:6px;margin:10px 0}.dots i{width:10px;height:10px;border-radius:50%;background:var(--card2)}.dots i.on{background:var(--acc)}
+.bigidea{background:#2a2f52;border-radius:10px;padding:12px 14px;margin:8px 0 14px;font-size:17px}
+.legend{display:grid;gap:6px;margin-top:10px;font-size:15px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px}
+.steps div{background:var(--card2);border-radius:10px;padding:10px;font-size:14px}.steps b{display:block;font-size:22px}
+.tile .status{font-size:13px;color:var(--mute);margin-top:4px}
+.chk{list-style:none;padding:0;text-align:left;display:inline-block}.chk li{margin:4px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+// Content: 28 units following the chapters of liquidslr/system-design-notes (Alex Xu, System Design Interview Vol 1 & 2).
+// In each question the correct option is listed first; options are shuffled when shown.
+const WORLDS=["Foundations","Classic Designs","Location & Streams","Money, Storage & Speed"];
+const REPO="https://github.com/liquidslr/system-design-notes/tree/main/";
+const U=[
+{t:"Scale From Zero to Millions",w:0,dir:"01.%20Scaling",
+learn:["Start with one server. Every later step exists because a specific thing broke: one box can't take the load, or dying takes the whole site with it.",
+"Split web tier and database first, so each can scale on its own. Vertical scaling (bigger box) is simple but has a ceiling and no failover. Horizontal scaling (more boxes) needs a load balancer.",
+"Most apps read far more than they write. So: primary DB takes writes, replicas serve reads, and a cache stops repeated reads hitting the DB at all. A CDN does the same for static files, close to the user.",
+"A web server that keeps session data in its own memory ties a user to that box. Move state to a shared store (Redis/NoSQL) so any server can take any request: that is a stateless tier, and it is what makes autoscaling possible.",
+"Message queues decouple producers from consumers: they scale separately, and work survives if the consumer is down for a while.",
+"When even one primary DB can't hold the writes, shard it by a key. New problems: resharding, hot shards (celebrity problem), and cross-shard joins, which usually push you to denormalize."],
+q:[{q:"You add a second web server behind a load balancer. Users now get logged out at random. Most likely cause?",o:["Session data lives in each web server's memory, so requests landing on the other server have no session","The database can't handle two connections","The CDN is caching login cookies","Round-robin load balancing is broken"],why:"Stateful servers tie a user to one box. Put sessions in a shared store so the tier is stateless and any server can serve anyone. Sticky sessions also 'work' but make scaling and failover harder."},
+{q:"Your DB CPU is at 90%. Traffic is 95% reads. Best first move?",o:["Add read replicas (and a cache) and route reads to them","Shard the database by user_id right away","Move all data to a CDN","Switch to a bigger write primary only"],why:"Fix the actual pressure: reads. Replicas and caching are cheap and simple. Sharding fixes write/size limits and brings big complexity, so it's a later step."},
+{q:"Why is vertical scaling alone a poor long-term plan?",o:["There's a hardware ceiling and one box means no redundancy if it dies","It's always more expensive than horizontal scaling","Databases can't run on large machines","It requires a CDN"],why:"Bigger machines top out, and a single machine is a single point of failure. Horizontal scaling gives both capacity and failover."},
+{q:"You shard users by user_id. One shard holding a celebrity is melting. This is called…",o:["The hotspot (celebrity) problem: fix by giving hot keys their own shard or splitting further","Replication lag","A cache stampede","Split brain"],why:"Even hashing can't help when one key gets massive traffic. Hot keys get special handling, like a dedicated shard."},
+{q:"Photo uploads trigger slow resize jobs. Why put a message queue between upload and resize?",o:["The upload returns fast, workers scale independently, and jobs wait safely if workers are down","Queues make resizing faster on the CPU","Queues replace the need for storage","It guarantees each photo is resized exactly once with no extra work"],why:"Decoupling is the point: producer and consumer don't need to be up, or fast, at the same time. Exactly-once still needs idempotent workers."}],
+ex:{p:"Explain, step by step, how you would grow a single-server app to millions of users. For each step, say what problem forced it.",pts:["Separate web and DB tiers","Load balancer + multiple web servers (horizontal scaling)","DB replication: primary writes, replicas reads","Cache and CDN to cut repeated reads / latency","Stateless web tier: sessions in a shared store","Message queue to decouple slow work","Sharding when writes/data outgrow one DB, with its problems (hot keys, joins, resharding)"]}},
+
+{t:"Back-of-the-Envelope Estimation",w:0,dir:"02.%20Back%20Of%20the%20Envelope%20Estimation",
+learn:["The goal is not the exact number. It is showing you can reason about scale so your design choices (cache? shard? CDN?) are backed by numbers.",
+"Know the units: 10^3 KB, 10^6 MB, 10^9 GB, 10^12 TB, 10^15 PB. A day has ~86,400 s, round it to ~100k for quick math.",
+"Latency intuition: memory is fast, disk seeks are slow, cross-continent round trips are ~150 ms. So: avoid disk seeks, cache hot data, compress before sending over the network, keep users near their data.",
+"Availability nines: 99.9% ≈ 8.8 h downtime/year, 99.99% ≈ 52 min/year, 99.999% ≈ 5 min/year. Each extra nine costs a lot more.",
+"Recipe: QPS = DAU × actions per user / 86,400. Peak ≈ 2× average. Storage = items/day × size × retention. Write down assumptions and units, round aggressively."],
+q:[{q:"100M daily users, each posts 2 times a day. Roughly what's the average write QPS?",o:["~2,300","~230","~23,000","~2.3M"],why:"200M posts / 86,400 s ≈ 2,300 per second. Peak might be ~4,600."},
+{q:"An SLA of 99.99% allows roughly how much downtime per year?",o:["~52 minutes","~8.8 hours","~5 minutes","~3.6 days"],why:"0.01% of 525,600 minutes ≈ 52.6 min. 99.9% is ~8.8 h, 99.999% is ~5 min."},
+{q:"Which is slowest?",o:["A network round trip from California to Europe","Reading 1 MB sequentially from memory","A main memory reference","An L1 cache reference"],why:"Cross-continent round trip ≈ 150 ms, far beyond memory operations (ns to µs). That's why multi-region designs and CDNs exist."},
+{q:"10M posts/day, 10% have 1 MB media. Media storage for 5 years?",o:["~1.8 PB","~18 TB","~180 PB","~1.8 TB"],why:"10M × 0.1 × 1 MB = 1 TB/day. × 365 × 5 ≈ 1,825 TB ≈ 1.8 PB."},
+{q:"In an interview, what matters most when estimating?",o:["Clear assumptions, units and a sensible process, rounded numbers are fine","Getting the exact number","Skipping estimates to save time","Using a calculator for precision"],why:"Interviewers grade reasoning. 99,987 / 9.1 → call it 100,000 / 10."}],
+ex:{p:"Estimate QPS and 5-year storage for a photo-sharing app with 10M DAU where each user uploads 1 photo (2 MB) per day. Show each step.",pts:["State assumptions clearly (DAU, uploads, size)","QPS = 10M / 86,400 ≈ 115 writes/s","Peak ≈ 2× average","Storage/day = 10M × 2 MB = 20 TB","5 years ≈ 20 TB × 365 × 5 ≈ 36 PB","Mention read QPS / replication multiplies storage"]}},
+
+{t:"A Framework for System Design Interviews",w:0,dir:"03.%20System%20Design%20Framework",
+learn:["The interview simulates two engineers solving a vague problem together. They grade collaboration, handling ambiguity and trade-offs, not a perfect diagram.",
+"Step 1, understand and scope (~3-10 min): ask what features, how many users, how fast it grows, what tech exists. Write down assumptions. Jumping straight to a solution is a red flag.",
+"Step 2, high-level design and buy-in (~10-15 min): draw boxes (clients, APIs, servers, DB, cache, CDN, queue), do quick estimates, walk through a few use cases. Get the interviewer to agree before going deep.",
+"Step 3, deep dive (~10-25 min): pick the 1-3 hardest parts, ideally ones the interviewer signals interest in. Talk trade-offs.",
+"Step 4, wrap up (~3-5 min): bottlenecks, failure cases, monitoring, what changes at 10× scale, recap. Never claim the design is perfect."],
+q:[{q:"Interviewer: 'Design a news feed.' What should you do first?",o:["Ask clarifying questions: mobile or web? which features? how many users? media?","Draw the database schema","Start explaining Kafka","Pick the programming language"],why:"Scope first. Different answers lead to very different designs, and the interviewer wants to see you handle ambiguity."},
+{q:"You planned to deep-dive caching, but the interviewer keeps asking about how the feed is ranked. You should…",o:["Follow their signal and dive into ranking","Stick to your plan, it shows confidence","Ask to move on to wrap-up","Ignore it and discuss logging"],why:"The interviewer is a teammate and grader. Their questions show what they want to evaluate."},
+{q:"Which is a good thing to do in the wrap-up?",o:["Name bottlenecks and how you'd handle 10× growth","Say the design has no weaknesses","Start a new feature from scratch","Stay silent and wait"],why:"Self-critique and next steps show seniority. No design is perfect."},
+{q:"Which is a red flag?",o:["Over-engineering a huge system before understanding requirements","Writing down assumptions","Asking for hints when stuck","Thinking out loud"],why:"Complexity without justification signals poor judgement. The rest are good habits."}],
+ex:{p:"Describe the 4 steps of the framework and what you'd actually say in each one if asked to 'Design Instagram'.",pts:["Step 1: clarify features, scale, platforms; write assumptions","Step 2: high-level diagram + estimates, get buy-in","Step 3: deep dive on the hard parts (e.g. feed, media storage)","Step 4: bottlenecks, failures, monitoring, 10× scale, recap","Keep communicating / treat interviewer as teammate"]}},
+
+{t:"Design a Rate Limiter",w:0,dir:"04.%20Rate%20Limiter",
+learn:["A rate limiter caps how many requests a client can make in a window. Why: stop abuse/DoS, cut cost (paid third-party APIs), and keep servers from being overloaded.",
+"Put it server-side or in middleware/API gateway, never trust the client. Over limit → HTTP 429, with headers like X-Ratelimit-Remaining and X-Ratelimit-Retry-After.",
+"Token bucket: tokens refill at a fixed rate, each request spends one. Allows bursts up to bucket size. Leaking bucket: requests queue and drain at a fixed rate, smooth output, but bursts wait.",
+"Fixed window counter is simple but a burst at a window edge can let ~2× the limit through. Sliding window log is exact but stores every timestamp (memory heavy). Sliding window counter approximates using current + weighted previous window.",
+"Counters live in an in-memory store like Redis (fast, has TTL), not a disk DB. In a distributed setup, read-then-write races are fixed with atomic ops (Lua scripts, sorted sets), and all limiters share one central store."],
+q:[{q:"Limit: 5 req/min, fixed window. A client sends 5 at 0:59 and 5 at 1:01. What happens?",o:["All 10 pass: 10 requests in 2 seconds, the edge-burst flaw","Only 5 pass","Only the first request passes","The client is banned"],why:"Each window looks fine alone. Sliding windows fix this by looking at a rolling period."},
+{q:"Your API should allow short bursts but enforce an average rate. Pick:",o:["Token bucket","Leaking bucket","Fixed window counter","No limiter, just autoscale"],why:"A full bucket can be spent at once (burst), then refills at the steady rate. Leaking bucket forces a fixed outflow instead."},
+{q:"Sliding window counter: limit 7/min. Previous minute had 5 requests, current has 3, and we're 30% into the current minute. Is a new request allowed?",o:["Yes: 3 + 5×0.7 = 6.5, under 7","No: 3 + 5 = 8, over 7","No: 3 + 5×0.3 = 4.5 is wrong to use","Yes, always, counters reset each minute"],why:"The previous window still overlaps 70% of the rolling minute, so weight it by 0.7."},
+{q:"Two limiter servers both read counter=3 and both write 4. Two requests got through but the count went up by one. Fix?",o:["Make the read-increment atomic (Redis Lua script or sorted set)","Add a database lock on every request","Use two separate counters","Increase the limit"],why:"It's a race condition. Locks work but are slow. Atomic operations in the shared store solve it cheaply."},
+{q:"Where should counters be stored?",o:["In-memory cache like Redis: fast, supports INCR and expiry","A relational DB table","Each web server's local memory","Log files"],why:"The limiter runs on every request, so it must be very fast. Local memory breaks with many servers, DB is too slow."}],
+ex:{p:"Compare token bucket and sliding window log. When would you pick each, and how would you run a limiter across many servers?",pts:["Token bucket: bucket size + refill rate, allows bursts, low memory","Sliding window log: stores timestamps, exact, memory heavy","Pick token bucket for burst-friendly APIs; log when precision matters","Central Redis store shared by all limiters","Atomic ops (Lua/sorted sets) to avoid race conditions","Return 429 + retry headers"]}},
+
+{t:"Design Consistent Hashing",w:0,dir:"05.%20Consistent%20Hashing",
+learn:["Naive sharding: server = hash(key) % N. When N changes (a server dies or is added), almost every key maps to a different server. For a cache that means a huge miss storm.",
+"Consistent hashing puts servers and keys on the same ring (hash space). A key goes to the first server clockwise. Adding or removing a server only moves keys in one slice of the ring, about k/n keys.",
+"Problem: with few servers, slices are uneven, and one server can get far more keys.",
+"Fix: virtual nodes. Each real server sits on the ring many times. More virtual nodes → more even load, at the cost of more metadata.",
+"Used in Dynamo, Cassandra, Discord, Akamai, Google Maglev, anywhere data is partitioned across a changing set of nodes."],
+q:[{q:"4 cache servers use hash(key) % 4. One dies. What happens?",o:["Most keys now map to a different server, causing a flood of cache misses","Only the dead server's keys move","Nothing, the hash is the same","All keys move to one server"],why:"Changing N changes almost every key's result. Consistent hashing limits movement to the affected slice."},
+{q:"On the ring, server S4 is added between S3 and S0 (clockwise S3 → S4 → S0). Which keys move?",o:["Keys between S3 and S4, they move from S0 to S4","All of S0's keys","All keys on the ring","Keys between S4 and S0"],why:"Those keys used to walk clockwise past where S4 now is and land on S0. Now S4 is the first server they hit."},
+{q:"One server owns a much larger slice of the ring than the others. Best fix?",o:["Virtual nodes: place each server at many points on the ring","Use hash % N instead","Add a second ring","Store keys in order"],why:"Many small slices per server average out, so each server ends up with roughly equal share."},
+{q:"What's the cost of adding more virtual nodes?",o:["More metadata to store and look up","Keys become unbalanced","Writes stop working","Every key moves on each change"],why:"Balance improves with more vnodes, but routing tables grow. It's a tunable trade-off."}],
+ex:{p:"Explain to a friend why hash % N breaks when servers change, and how the ring plus virtual nodes fixes it.",pts:["% N remaps nearly all keys when N changes","Ring: servers and keys hashed into one space","Key → first server clockwise","Add/remove only moves keys in one range","Uneven slices problem","Virtual nodes balance load, trade-off is metadata"]}},
+
+{t:"Design a Key-Value Store",w:0,dir:"06.%20Key-Value%20Store",
+learn:["CAP: when a network partition happens, a distributed store must choose consistency (refuse/err, CP) or availability (answer, maybe stale, AP). Partitions will happen, so it's really C vs A during failure.",
+"Partition data with consistent hashing; replicate each key to the next N distinct servers on the ring (ideally across data centers).",
+"Quorum: N replicas, a write needs W acks, a read needs R. If W + R > N, read and write sets overlap, so reads see the latest write. W=1 → fast writes; R=1 → fast reads.",
+"Conflicts from concurrent writes are detected with vector clocks. Failures are detected with gossip (heartbeats spread to random peers, not all-to-all).",
+"Temporary failure: sloppy quorum + hinted handoff (a healthy node holds the write and hands it back). Permanent: anti-entropy with Merkle trees, so only differing ranges are synced.",
+"Write path: commit log → memtable → flushed to SSTable on disk. Read path: memtable, then a Bloom filter tells which SSTables might hold the key."],
+q:[{q:"N=3, W=2, R=2. What does this buy you?",o:["Reads overlap with the latest write (W+R > N), giving strong consistency","Fastest possible reads","No replication","Eventual consistency only"],why:"Any 2 readers and any 2 writers among 3 nodes must share at least one node, which holds the latest value."},
+{q:"A bank balance store hits a network partition. Which choice fits?",o:["CP: block or error rather than show a wrong balance","AP: return whatever each node has","Delete the data","Turn off replication"],why:"Showing a stale balance could allow overspending. Social feeds might choose AP instead."},
+{q:"How do you find which data differs between two replicas without comparing every key?",o:["Merkle trees: compare hashes top-down, only drill into mismatched branches","Bloom filters","Vector clocks","Gossip protocol"],why:"Matching root hash means all is equal. Mismatch narrows quickly to the bad ranges, so you sync only those."},
+{q:"A replica is down for 2 minutes. How can writes keep succeeding?",o:["Sloppy quorum: another healthy node accepts it and later hands it off (hinted handoff)","Reject all writes","Write only to the dead node","Rebuild the cluster"],why:"Availability is kept by temporarily using the next healthy nodes, then repairing the original."},
+{q:"Why does the read path use a Bloom filter?",o:["To skip SSTables that definitely don't contain the key","To store the values","To compress data","To order writes"],why:"Bloom filters say 'definitely not here' or 'maybe here', saving costly disk reads."},
+{q:"Why gossip instead of every node pinging every other node?",o:["All-to-all heartbeats grow as n² and don't scale","Gossip is more accurate","Pinging is insecure","Gossip needs no network"],why:"Each node tells a few random peers; information spreads quickly with far less traffic."}],
+ex:{p:"Explain what W + R > N means and why it gives consistent reads. Then explain how a KV store survives a temporary node failure.",pts:["N replicas, W write acks, R read acks","W+R>N → read and write sets overlap","Overlap node has latest value","Tuning W/R trades latency vs consistency","Sloppy quorum + hinted handoff for temporary failures","Merkle trees for permanent repair"]}},
+
+{t:"Unique ID Generator",w:0,dir:"07.%20Unique-Id%20Generator",
+learn:["Goal: unique, numeric, 64-bit, roughly sortable by time, thousands per second, across many servers. A single DB auto-increment can't do this.",
+"Multi-master auto-increment (each server steps by k): hard to add servers, IDs not ordered across servers.",
+"UUID: no coordination, but 128 bits, not numeric, not time-sortable.",
+"Ticket server (one central auto-increment DB): simple, but a single point of failure.",
+"Snowflake: 1 sign bit + 41 bits timestamp (ms, ~69 years) + 5 datacenter + 5 machine + 12 sequence (4,096 IDs per ms per machine). Timestamp first → IDs sort by time. Needs synced clocks (NTP)."],
+q:[{q:"Why is UUID a poor fit here?",o:["128 bits, not numeric, and not sortable by time","It's often duplicated","It needs a central server","It's too slow to generate"],why:"UUID solves uniqueness but misses the 64-bit numeric and time-ordered requirements."},
+{q:"Snowflake's 12 sequence bits allow how many IDs per millisecond per machine?",o:["4,096","1,024","12","65,536"],why:"2^12 = 4,096. The sequence resets every millisecond."},
+{q:"Main drawback of a ticket server?",o:["Single point of failure (and possible bottleneck)","IDs too long","Not unique","Needs clock sync"],why:"Everything depends on one DB. Running two adds sync problems."},
+{q:"Why put the timestamp in the most significant bits?",o:["So sorting IDs numerically sorts them by creation time","To save space","To hide the machine ID","Because the sign bit requires it"],why:"Higher bits dominate comparison, so newer IDs are bigger."},
+{q:"A machine's clock jumps backwards. Risk?",o:["Duplicate or out-of-order IDs","Nothing","IDs get longer","The datacenter ID changes"],why:"Same ms can be reused. Use NTP and refuse to generate until the clock catches up."}],
+ex:{p:"Explain the Snowflake ID layout and why each part exists.",pts:["Sign bit (unused)","41-bit timestamp → time-sortable, ~69 years","Datacenter + machine IDs → no coordination needed","12-bit sequence → 4,096/ms per machine","Clock sync (NTP) is a risk"]}},
+
+{t:"Design a URL Shortener",w:1,dir:"08.%20URL%20Shortener",
+learn:["API: POST long URL → short URL; GET short URL → redirect. Example scale: 100M new URLs/day ≈ 1,160 writes/s, ~10× more reads.",
+"301 (permanent) lets browsers cache the redirect, less load on you. 302 (temporary) sends every click through you, so you can do analytics.",
+"Code length: base62 [0-9a-zA-Z]. 62^7 ≈ 3.5 trillion, enough for 365 billion URLs over 10 years, so 7 characters.",
+"Option A: hash (CRC32/MD5) and take 7 chars, then handle collisions by checking the DB, and use a Bloom filter to make checks cheap.",
+"Option B: get a unique ID (from an ID generator) and base62-encode it. No collisions, but short URLs become guessable/sequential.",
+"Reads dominate, so cache popular short→long mappings."],
+q:[{q:"Marketing wants click analytics on every short link. Which redirect?",o:["302 temporary redirect","301 permanent redirect","200 with HTML","404"],why:"With 301, browsers cache and skip your server, so you lose click data."},
+{q:"Why 7 characters?",o:["62^7 ≈ 3.5 trillion, enough for hundreds of billions of URLs","Browsers limit URLs to 7 chars","Hashes are always 7 chars","It's the length of 'http://'"],why:"Pick the smallest length that covers expected total URLs."},
+{q:"Base62-encoding a unique ID vs hashing: a downside of base62?",o:["Short URLs are predictable, so someone can enumerate them","Collisions happen often","It's slow","Needs a Bloom filter"],why:"Sequential IDs leak info. Hashing avoids that but needs collision handling."},
+{q:"With hash-and-truncate, checking the DB for collisions on every write is slow. Speed-up?",o:["A Bloom filter to quickly rule out existing codes","A bigger CDN","More 301s","Shorter codes"],why:"Bloom filters answer 'definitely not present' fast in memory."}],
+ex:{p:"Walk through the full design: API, redirect choice, code generation, and how reads stay fast.",pts:["POST shorten / GET redirect","301 vs 302 trade-off","Base62, 7 chars, math","Hash+collision (Bloom filter) vs base62 of unique ID","Cache hot mappings","Read-heavy so cache/replicas"]}},
+
+{t:"Design a Web Crawler",w:1,dir:"09.%20Web%20Crawler",
+learn:["Crawl = BFS over the web graph: seed URLs → download → parse → extract links → filter → add unseen links to the frontier. DFS goes too deep.",
+"URL frontier does two jobs. Priority: front queues ranked by PageRank, traffic, update frequency. Politeness: back queues where one host maps to one queue and one worker, with delays, so you don't hammer a site.",
+"DNS lookups are slow (10-200 ms), so cache DNS. Respect robots.txt and cache it.",
+"About 29% of pages are duplicates. Compare content hashes, not full text. 'URL seen?' uses a Bloom filter or hash table.",
+"Watch for spider traps (infinite URL spaces like calendars): cap URL length, blacklist. Filter low-value content. Use server-side rendering for JS-heavy pages.",
+"Scale: distribute crawl servers, keep most of the frontier on disk with in-memory buffers, crawl from servers close to the target hosts."],
+q:[{q:"Why BFS rather than DFS?",o:["Web depth can be enormous; DFS gets stuck deep in one site","DFS can't find links","BFS needs no storage","DFS is not allowed by robots.txt"],why:"BFS explores broadly. Plain BFS still needs priority and politeness on top."},
+{q:"How do you avoid sending many parallel requests to one website?",o:["Map each host to its own queue handled by one worker, with delays","Use more threads","Ignore robots.txt","Crawl that site last"],why:"This is the politeness part of the frontier."},
+{q:"How do you detect duplicate pages efficiently?",o:["Compare hashes/checksums of page content","Compare page text character by character","Compare URLs only","Ask the site"],why:"Hashes are tiny and fast to compare. Different URLs can still serve the same content."},
+{q:"A site generates infinite calendar URLs. What is this and how do you defend?",o:["A spider trap; cap URL length, filter/blacklist patterns","A DNS failure; cache DNS","Duplicate content; use hashes","Politeness issue; add delay"],why:"The crawler would never finish. Limits and filters stop it."},
+{q:"Your crawler is slowed down by repeated lookups for the same hosts. Fix?",o:["Cache DNS results","Use DFS","Add more seed URLs","Store pages in memory"],why:"DNS resolution is often a hidden bottleneck."}],
+ex:{p:"Explain the URL frontier: what problems does it solve and how?",pts:["Priority: front queues, prioritizer (PageRank, traffic, freshness)","Politeness: host → one back queue → one worker, delays","Freshness: recrawl based on update history","Mostly on disk with memory buffers","Feeds BFS order"]}},
+
+{t:"Design a Notification System",w:1,dir:"10.%20Notification%20System",
+learn:["Channels: iOS push (APNs), Android push (FCM), SMS (e.g. Twilio), email (e.g. SendGrid). Collect device tokens, phone, email at signup/app install.",
+"A single notification server is a SPOF, hard to scale, and a bottleneck. Better: notification servers (auth, validation, rate limits) → one message queue per channel → workers → third-party providers.",
+"One queue per channel isolates failures: if APNs is down, email still flows.",
+"Reliability: persist to a notification log DB and retry. Exactly-once is impossible, so dedupe with an event ID.",
+"Extras: templates, user opt-out settings, rate limiting (don't spam users), secure APIs (appKey/appSecret), monitor queue depth, track opened/clicked events."],
+q:[{q:"APNs is down for 10 minutes. You still want emails delivered. What design choice makes that work?",o:["Separate queues and workers per channel","One shared queue for all","Synchronous calls from the app","Bigger servers"],why:"Isolation: one slow provider can't block the others."},
+{q:"A worker sends a push and then crashes before marking it done. It gets retried. Prevent duplicates how?",o:["Check an event ID and skip already-sent ones","Never retry","Send twice on purpose","Use a bigger queue"],why:"Delivery is at-least-once; dedupe makes it effectively once."},
+{q:"How do you avoid losing notifications if a worker dies?",o:["Persist to a notification log DB and retry until success","Keep them only in worker memory","Send them by SMS","Lower traffic"],why:"Durable storage plus retry is the core of reliability."},
+{q:"Which metric best tells you to add workers?",o:["Number of queued notifications (queue depth)","CPU of the API server","Number of templates","Disk usage on clients"],why:"A growing queue means consumers can't keep up."}],
+ex:{p:"Describe the improved notification system design and explain how it stays reliable.",pts:["Notification servers: auth, validation, rate limiting","Per-channel message queues","Workers call APNs/FCM/SMS/email providers","Notification log + retry","Dedup via event ID","Templates, user settings, monitoring, analytics"]}},
+
+{t:"Design a News Feed",w:1,dir:"11.%20News%20Feed%20System",
+learn:["Two flows: publishing (a post is saved and fanned out to friends' feeds) and building (a user loads their feed).",
+"Fanout on write (push): precompute each follower's feed when a post is made. Reads are fast. But a celebrity with millions of followers is costly, and you waste work on inactive users.",
+"Fanout on read (pull): build the feed when the user opens the app. No wasted work, but reads are slow.",
+"Hybrid: push for normal users, pull for celebrities (merge their posts at read time).",
+"Feed cache stores only <post_id, user_id> pairs, not full posts, to save memory. Full data is hydrated from user and post caches. Cache is split into tiers: feed, content, social graph, actions, counters."],
+q:[{q:"A celebrity with 100M followers posts. Best approach?",o:["Don't fan out; followers pull the celebrity's posts at read time (hybrid)","Write to 100M feeds immediately","Email followers","Block celebrity posts"],why:"Pull for hot accounts avoids a huge write storm."},
+{q:"Why does the feed cache store only IDs?",o:["To save memory; full content is stored once and fetched separately","IDs are encrypted","Content changes too often to store","The DB requires it"],why:"Copying full posts into millions of feeds wastes memory."},
+{q:"Main downside of pure fanout-on-write?",o:["Wasted work for inactive users and huge cost for celebrities","Slow reads","No real-time updates","Requires a graph DB"],why:"Push pays at write time for every follower, active or not."},
+{q:"Fanout on read is best when…",o:["Users rarely log in or accounts have huge follower counts","Read speed is the top priority","Users have few friends and log in constantly","Never"],why:"It avoids precomputing feeds nobody reads, at the cost of slower reads."}],
+ex:{p:"Compare fanout-on-write and fanout-on-read, and explain the hybrid approach.",pts:["Push: precompute, fast reads","Push cons: celebrity/hotkey, inactive users","Pull: on-demand, no waste, slow reads","Hybrid: push most, pull celebrities","Cache only IDs, hydrate later"]}},
+
+{t:"Design a Chat System",w:1,dir:"12.%20Chat%20System",
+learn:["Sending can be plain HTTP. Receiving needs the server to push. Polling wastes requests. Long polling holds the request open but is awkward (the receiver may be on a different server, hard to detect disconnects). WebSocket gives a persistent two-way connection, starting as an HTTP upgrade.",
+"Stateless services (login, profile, groups) sit behind a load balancer. Chat service is stateful (holds connections). Service discovery (e.g. ZooKeeper) picks a chat server for each client.",
+"Chat history: a key-value store (HBase, Cassandra). Huge volume, mostly recent messages read, random access, read/write ratio ~1:1. Relational indexes get too big.",
+"Message IDs must be sortable: created_at is not enough (ties). Use a global ID generator or a per-channel sequence.",
+"Small group chat: copy each message into every member's inbox (message sync queue). Works for ~hundreds of members, not 100k.",
+"Presence: client sends a heartbeat every ~5 s; mark offline after ~30 s without one, so flaky networks don't flicker. Status changes fan out to friends via pub/sub channels."],
+q:[{q:"Why use WebSocket instead of polling to receive messages?",o:["The server can push instantly over one persistent connection without wasted requests","WebSocket is more secure than HTTPS","Polling can't carry text","WebSocket needs no servers"],why:"Polling and long polling waste resources and add latency."},
+{q:"A user's Wi-Fi drops for 2 seconds every minute. How do you avoid flashing offline/online?",o:["Heartbeats with a timeout: offline only after ~30 s with no heartbeat","Mark offline on any disconnect","Poll friends every second","Ignore presence"],why:"A grace period smooths out short blips."},
+{q:"Why store chat history in a key-value store?",o:["Huge volume and simple, random access patterns; relational indexes get too large","KV stores support complex joins","It's required by WebSocket","It's cheaper to set up"],why:"Real-world systems (Facebook used HBase, Discord used Cassandra) pick KV for this."},
+{q:"Two messages share the same created_at. How do you order them?",o:["Use a sortable message ID (global or per-channel sequence)","Sort by user name","Random order","By message length"],why:"Timestamps collide. Sequential IDs guarantee order."},
+{q:"Copying every message into each member's inbox works well for…",o:["Small groups (hundreds of members)","Groups of millions","Broadcast channels only","Nothing"],why:"Cost grows with group size, so large groups need a different strategy."}],
+ex:{p:"Explain what happens end-to-end when user A sends a 1-on-1 message to user B.",pts:["A sends to its chat server (WebSocket)","Get message ID from ID generator","Put in message sync queue","Store in KV store","If B online: deliver via B's chat server over WebSocket","If offline: push notification","Multi-device sync via cur_max_message_id"]}},
+
+{t:"Design Search Autocomplete",w:1,dir:"13.%20Search%20Autocomplete",
+learn:["Goal: top 5 suggestions by popularity, in under ~100 ms, as the user types.",
+"Data structure: a trie where nodes keep frequency. Naive lookup walks the whole subtree for every prefix, too slow.",
+"Optimizations: limit prefix length, and cache the top-k suggestions at every node. Trade memory for O(1) lookups.",
+"Don't update the trie on every search. Logs → aggregators (e.g. weekly) → workers rebuild the trie → stored in a Trie DB → loaded into a trie cache.",
+"Browser caches results (Google caches ~1 hour), AJAX requests keep the page responsive. A filter layer removes hateful or unsafe suggestions before showing them.",
+"Sharding by first letter is unbalanced (many words start with 's', few with 'x'). Use a shard map built from historical data."],
+q:[{q:"Why cache the top-k suggestions at each trie node?",o:["So a lookup is O(1) instead of scanning the whole subtree","To save memory","So the trie updates faster","To filter bad words"],why:"Classic space-for-time trade."},
+{q:"Why not update the trie for every search query?",o:["At billions of queries it's too slow, and top suggestions rarely change by the second","Tries can't be updated","Updates break caches forever","It's illegal"],why:"Batch rebuilds (weekly or so) are good enough; trending needs a separate streaming path."},
+{q:"You shard by the first letter and the 's' shard is overloaded. Fix?",o:["Use a shard map based on historical query distribution","Add more letters","Store everything in one server","Drop 's' queries"],why:"Split by actual load, not alphabet."},
+{q:"A hateful suggestion appears. Fastest safe fix?",o:["A filter layer that hides it immediately; remove from the trie in the next rebuild","Rebuild the whole trie now","Shut down autocomplete","Wait for the weekly job"],why:"Filtering at serve time is instant."}],
+ex:{p:"Explain how the trie is built and served, and why you don't update it in real time.",pts:["Trie with frequency per node","Cache top-k at each node","Limit prefix length","Logs → aggregators → workers → Trie DB → Trie cache","Batch updates are good enough","Filter layer + browser caching"]}},
+
+{t:"Design YouTube",w:1,dir:"14.%20Youtube",
+learn:["Upload flow: original video → blob storage → transcoding servers → transcoded storage → CDN. Metadata (title, size) goes to DB + cache in parallel.",
+"Transcoding converts to many formats and bitrates so each device and network gets a fitting stream (adaptive bitrate streaming). Work is modeled as a DAG (split video/audio/metadata, encode, thumbnails, watermark) so tasks run in parallel.",
+"Split videos into chunks (GOPs) on the client: faster parallel upload, and resumable if the connection fails.",
+"Pre-signed URLs let the client upload straight to storage with a time-limited permission, without passing through your servers.",
+"Message queues between pipeline stages decouple them so a slow encoder doesn't block downloads.",
+"CDN is the biggest cost. Serve only popular videos from CDN, long-tail from your own servers, encode rare videos on demand, use regional CDNs and ISP partners.",
+"Protect content: DRM, AES encryption, watermarks."],
+q:[{q:"What's usually the biggest cost in a video platform?",o:["CDN bandwidth for streaming","Database storage of titles","Login servers","Transcoding thumbnails"],why:"Streaming dominates. Hence: popular on CDN, long-tail elsewhere."},
+{q:"How can a client upload safely to cloud storage without going through your servers?",o:["Pre-signed URL with limited time and permission","Give the client your storage keys","Upload via email","Use HTTP 302"],why:"The URL itself carries a short-lived permission."},
+{q:"Why split a video into chunks (GOPs) before uploading?",o:["Parallel uploads and resume after network failures","To reduce video quality","Because CDNs require it","To encrypt it"],why:"A failure only retries the chunk that failed."},
+{q:"A user's network drops from Wi-Fi to weak 4G mid-video. What keeps it playing?",o:["Adaptive bitrate streaming switches to a lower bitrate","DRM","Bigger CDN","Pre-signed URLs"],why:"Multiple encodings exist so the player can switch."},
+{q:"Why model transcoding as a DAG?",o:["Independent tasks (video, audio, thumbnails) run in parallel and pipelines are configurable","DAGs are cheaper to store","It removes the need for storage","It's required by codecs"],why:"Facebook's streaming engine uses this style for flexibility and parallelism."}],
+ex:{p:"Explain the video upload and streaming flow, and two ways to cut CDN cost.",pts:["Upload to blob storage (chunks, pre-signed URL)","Transcode via DAG into many bitrates","Transcoded storage → CDN","Parallel metadata update","Adaptive bitrate streaming","Cost: popular via CDN, long tail own servers / on-demand encode / regional"]}},
+
+{t:"Design Google Drive",w:1,dir:"15.%20Google%20Drive",
+learn:["Features: upload, download, sync across devices, notifications, sharing. Strong consistency matters: two devices must not see different versions of a file.",
+"Block servers split files into blocks (e.g. 4 MB), each with a hash, and compress and encrypt them before storing in cloud storage (e.g. S3).",
+"Delta sync: when a file changes, only modified blocks upload. Same hash = same block, so duplicates are stored once (dedup).",
+"Metadata (users, files, versions, blocks) goes in a relational DB for ACID strong consistency.",
+"Notification service uses long polling: changes are infrequent and only flow server → client, so WebSocket is overkill.",
+"Sync conflicts: first version processed wins; the other user gets a conflict copy to merge.",
+"Save space: dedupe blocks, limit stored versions, move cold data to cold storage."],
+q:[{q:"You edit 1 byte in a 1 GB file. What gets uploaded?",o:["Only the changed block(s), thanks to delta sync","The entire 1 GB file","Nothing until midnight","The metadata only"],why:"Blocks are hashed; only changed ones move."},
+{q:"Why long polling instead of WebSocket for change notifications?",o:["Changes are infrequent and one-way (server → client)","WebSocket can't send JSON","Long polling is always faster","WebSocket needs HTTP/3"],why:"WebSocket suits frequent two-way traffic like chat."},
+{q:"Two people edit the same file at once. What's the simple, standard resolution?",o:["First processed version wins; the other gets a conflict copy to resolve","Last write silently wins","Both edits are deleted","Merge byte by byte automatically"],why:"Never lose data silently; let a human resolve."},
+{q:"Which DB for file metadata?",o:["Relational, for ACID strong consistency","Eventual-consistency KV store","A CDN","Log files"],why:"Metadata must be correct and consistent across devices."},
+{q:"How does block hashing save storage?",o:["Identical blocks (across files or versions) are stored once","It compresses each byte","It deletes old files","It reduces metadata"],why:"Dedup by hash."}],
+ex:{p:"Explain how a file upload works and how sync keeps devices consistent.",pts:["Block servers: split, hash, compress, encrypt","Cloud storage for blocks","Relational metadata DB","Delta sync uploads only changed blocks","Notification via long polling → clients pull changes","Conflict handling: first wins, conflict copy"]}},
+
+{t:"Proximity Service (Nearby Places)",w:2,dir:"16.%20Proximity%20Service",
+learn:["Find businesses within a radius. Very read-heavy; business info changes rarely (can show up the next day).",
+"Split into a stateless Location-Based Service (search, read-heavy, scales easily) and a Business Service (CRUD).",
+"Searching lat and lng ranges separately and intersecting is slow. Geospatial indexes fix this.",
+"Even grid: simple, but dense cities and empty oceans get the same cell size.",
+"Geohash: recursively split the world, encode as base32 strings. Longer string = smaller cell (length 6 ≈ 1.2 km × 0.6 km). Shared prefix ≈ nearby. Boundary issue: neighbors can have totally different prefixes, so always search the current cell plus its 8 neighbors.",
+"Quadtree: in-memory tree that splits a cell until it holds ≤ ~100 businesses, so it adapts to density. Takes minutes to build at startup. Google S2 (Hilbert curve) is another option, good for geofencing.",
+"Cache by geohash → list of business IDs (not raw lat/lng, which changes slightly every request). Scale reads with replicas."],
+q:[{q:"Two cafes 10 m apart have completely different geohash prefixes. Why, and how do you handle it?",o:["They sit on a cell boundary; search the current cell plus its 8 neighbors","Geohash is random; use a different index","GPS error; ignore","They are actually far apart"],why:"Shared prefix implies closeness, but not the reverse."},
+{q:"Why is a quadtree better than an even grid?",o:["It adapts cell size to density, so dense cities get small cells and empty areas big ones","It uses less code","It needs no memory","It's a SQL feature"],why:"Even grids waste work on empty cells and overload dense ones."},
+{q:"Why not cache by the user's exact lat/lng?",o:["Coordinates change slightly every request, so cache hit rate would be near zero","Lat/lng is private","Caches can't store numbers","It's too accurate"],why:"Geohash groups nearby users into the same key."},
+{q:"A drawback of a quadtree?",o:["Built in memory at server start, which takes time; updates are tricky","Can't find nearby points","Uses SQL joins","Can't scale reads"],why:"Rollout must be gradual so not all servers rebuild at once."},
+{q:"New businesses can appear in search tomorrow. What does that let you do?",o:["Rebuild indexes/caches nightly instead of in real time","Skip the database","Drop replication","Use strong consistency everywhere"],why:"Relaxed freshness requirements simplify design."}],
+ex:{p:"Explain geohash: how it works, why it's useful, and its boundary problem.",pts:["Recursively split world into grids, encode as base32","Longer = more precise","Shared prefix ≈ close","Boundary issue: close points, different prefixes","Fix: search current + 8 neighbors","Compare with quadtree (density adaptive, in-memory)"]}},
+
+{t:"Nearby Friends",w:2,dir:"17.%20Nearby%20Friends",
+learn:["Show friends within ~5 miles, updated in near real time. Users send location every ~30 s. 10M concurrent users ≈ 334k updates/s.",
+"Clients keep a WebSocket connection to stateful WebSocket servers.",
+"Location cache (Redis) holds each active user's latest position with a TTL, so inactive users expire on their own.",
+"Redis pub/sub: one channel per user. On update, publish to your own channel. Your friends' WebSocket handlers are subscribed, compute the distance, and push to the friend only if within range.",
+"Location history goes to a write-heavy store like Cassandra.",
+"Pub/sub bottleneck is CPU (fan-out pushes), not memory. Spread channels over many Redis servers with consistent hashing and service discovery (etcd/ZooKeeper). When removing a WebSocket server, drain its connections first.",
+"'Random people nearby' variant: one pub/sub channel per geohash cell."],
+q:[{q:"10M concurrent users each send location every 30 s. Roughly how many updates per second?",o:["~334,000","~33,000","~3.3M","~10M"],why:"10M / 30 ≈ 333k."},
+{q:"Why use a TTL on the location cache?",o:["Inactive users drop off automatically, no cleanup needed","To make reads faster","TTL encrypts data","To avoid WebSockets"],why:"Their last location simply expires."},
+{q:"Why publish updates to a per-user pub/sub channel?",o:["Friends' handlers get pushed updates without polling a database","Channels store history","It's needed for TLS","Channels compute distance automatically"],why:"Push model with cheap channels."},
+{q:"The Redis pub/sub cluster is struggling. What's the likely bottleneck?",o:["CPU from pushing each update to many subscribers","Disk space","Memory for channels","DNS"],why:"Channels are cheap; fan-out work is the expensive part."},
+{q:"How do you safely remove a WebSocket server?",o:["Mark it draining, let clients reconnect elsewhere, then remove","Kill it instantly","Restart the load balancer","Move its memory to disk"],why:"Stateful servers need graceful shutdown."}],
+ex:{p:"Walk through what happens when user A's phone sends a new location.",pts:["Update arrives via WebSocket","Save to location history DB","Update location cache with TTL","Publish to A's pub/sub channel","Subscribed friends' handlers compute distance","Push to friends within radius"]}},
+
+{t:"Design Google Maps",w:2,dir:"18.%20Google%20Maps",
+learn:["Three parts: location service (collect user locations), navigation (routes + ETA), map rendering.",
+"Map rendering: the world is pre-cut into tiles per zoom level. They're static, so serve from a CDN. The client computes which tile URLs it needs. Vector tiles compress better and zoom smoothly vs raster images.",
+"Routing: the road network is a graph, far too big for memory at once. Split into routing tiles, loaded on demand. Tiles are hierarchical: local streets, arterial roads, highways, so long trips don't load millions of local tiles.",
+"Shortest path (A*/Dijkstra over tiles) → ETA service (ML on live + historical traffic) → ranker (filters like 'avoid tolls').",
+"Location updates are batched on the phone (e.g. send every 15 s) to save battery and bandwidth, then flow into Kafka for traffic, ETA, and map updates.",
+"Adaptive ETA/rerouting: track which active users use which road segments and notify them when traffic changes."],
+q:[{q:"Why pre-render map tiles and serve them from a CDN?",o:["Tiles are static and identical for everyone, so caching near users is cheap and fast","Each user's map is unique","CDNs can compute routes","To save phone battery only"],why:"Rendering on every request would be wasteful."},
+{q:"Why split the road graph into routing tiles?",o:["The full graph doesn't fit in memory; load only the tiles a route needs","Tiles make routes shorter","It's a CDN requirement","To compress images"],why:"Load on demand."},
+{q:"Why have hierarchical routing tiles (local, arterial, highway)?",o:["Long routes would otherwise load huge numbers of local-street tiles","To draw nicer maps","To store traffic","For security"],why:"Like how you plan a trip: highways for distance, local roads at the ends."},
+{q:"How should the phone send GPS updates?",o:["Batch several points and send periodically","Send every point instantly","Only send when the app closes","Never"],why:"Batching saves battery and network."},
+{q:"Advantage of vector tiles over raster tiles?",o:["Smaller to send and smooth zooming, rendered on the device","Higher resolution photos","Easier to cache","Work without a GPU"],why:"Send paths and polygons, not pixels."}],
+ex:{p:"Explain how a navigation request ('route from A to B') is answered.",pts:["Geocode addresses to lat/lng","Shortest-path service over routing tiles (hierarchical)","ETA service using traffic/ML","Ranker applies filters (tolls, highways)","Return routes","Adaptive reroute as traffic changes"]}},
+
+{t:"Distributed Message Queue",w:2,dir:"19.%20Distributed%20Message%20Queue",
+learn:["Think Kafka: messages are persisted to disk, kept for a retention period, and can be replayed.",
+"A topic is split into partitions. Each partition is an append-only log; messages have offsets. Ordering is guaranteed only within a partition. A message key decides the partition (hash), so same key → same partition → ordered.",
+"Consumer groups: each partition is read by at most one consumer in a group. More consumers than partitions = idle consumers.",
+"Disks are fast for sequential writes, and the OS page cache helps. Batching boosts throughput at the cost of latency.",
+"Replication: each partition has a leader and followers. In-sync replicas (ISR) are followers caught up with the leader. Producer ACK: 0 (fastest, may lose), 1 (leader only), all (all ISR, safest, slowest).",
+"Pull model (Kafka): consumers control their own pace and batch well. Push can overwhelm slow consumers.",
+"Delivery semantics: at-most-once (may lose), at-least-once (may duplicate), exactly-once (costly; often at-least-once + idempotency)."],
+q:[{q:"Events for each user must be processed in order. What do you do?",o:["Use user_id as the message key so each user's events go to one partition","Use one consumer for the whole system","Add more partitions randomly","Sort events in the database later"],why:"Order holds within a partition only."},
+{q:"A topic has 10 partitions and a consumer group has 15 consumers. Result?",o:["5 consumers sit idle","Each partition is read by 1.5 consumers","Kafka creates 5 new partitions","Messages are duplicated"],why:"One partition → at most one consumer per group."},
+{q:"Producer ACK = all means…",o:["Most durable, highest latency: all in-sync replicas confirm","Fastest, may lose data","Only the leader confirms","No confirmation"],why:"Classic durability vs latency knob."},
+{q:"Why do Kafka-style systems use pull?",o:["Consumers control their rate and batch efficiently; slow consumers aren't overwhelmed","Push isn't possible over TCP","Pull uses less disk","Pull guarantees exactly-once"],why:"Downside: consumers may poll when empty (long polling helps)."},
+{q:"Why can disk-based queues be fast?",o:["Sequential append-only writes plus the OS page cache","They keep everything in RAM only","They use SSD random writes","They compress to zero"],why:"Sequential disk access is far faster than random access."},
+{q:"A payment events consumer must never double-charge. Pragmatic choice?",o:["At-least-once delivery + idempotent processing","At-most-once delivery","Turn off retries","ACK=0"],why:"Retries ensure no loss; idempotency removes duplicates."}],
+ex:{p:"Explain topics, partitions, consumer groups, and how ordering and durability work.",pts:["Topic → partitions (append-only logs, offsets)","Key → partition, order only within partition","Consumer group: one consumer per partition","Leader/followers, ISR","ACK 0/1/all trade-off","Delivery semantics: at-most/at-least/exactly once"]}},
+
+{t:"Metrics Monitoring & Alerting",w:2,dir:"20.%20Metrics%20Monitoring%20and%20Alerting%20System",
+learn:["Metrics are time-series data: name, labels, timestamp, value. Load is constant heavy writes, spiky reads (dashboards, alerts). Most queries hit recent data.",
+"Use a time-series DB (InfluxDB, Prometheus): built for writes, compression, and time-window queries. A relational DB struggles here.",
+"Pull (Prometheus style): collectors scrape each service's /metrics endpoint. Easy to detect a dead service (scrape fails). Needs service discovery.",
+"Push: agents send metrics to collectors behind a load balancer. Better for short-lived jobs and across firewalls.",
+"Put Kafka between collectors and the DB so data isn't lost if the DB is slow or down.",
+"Downsampling: keep raw data ~7 days, 1-min resolution for 30 days, 1-hour for a year. Move old data to cold storage.",
+"Alerting: rules in config → alert manager evaluates, dedupes, merges and retries → email/pager/webhook. Visualization: Grafana."],
+q:[{q:"Batch jobs run for 20 seconds then exit. Pull or push?",o:["Push, because the job may finish before any scrape happens","Pull","Neither","Both at once required"],why:"Short-lived jobs are the classic case for push."},
+{q:"Why not store metrics in a relational DB?",o:["Constant write volume and time-window queries need specialized storage and compression","Relational DBs can't store numbers","Metrics have no structure","It's illegal"],why:"TSDBs are optimized exactly for this pattern."},
+{q:"Storage costs grow from years of per-second data. Fix?",o:["Downsample older data to coarser resolution and move it to cold storage","Delete all data daily","Store more labels","Use a bigger DB"],why:"Old data rarely needs per-second detail."},
+{q:"The TSDB goes down for 5 minutes. How do you avoid losing data?",o:["Buffer through Kafka between collectors and DB","Retry once then drop","Make agents keep everything forever","Turn off alerts"],why:"The queue absorbs the outage."},
+{q:"A benefit of pull-based collection?",o:["If a scrape fails you immediately know the target may be down","It works best for short jobs","Needs no service discovery","Works through any firewall"],why:"Health detection comes for free."}],
+ex:{p:"Describe the metrics pipeline from service to alert.",pts:["Collect via pull or push (trade-offs)","Kafka buffer","Time-series DB","Downsampling + cold storage","Query service + cache for dashboards","Alert manager: rules, dedupe, notify"]}},
+
+{t:"Ad Click Event Aggregation",w:2,dir:"21.%20Ad%20Click%20Event%20Aggregation",
+learn:["Count clicks per ad per minute and the top N ads in the last M minutes. It drives billing, so correctness is critical.",
+"Flow: log watcher → Kafka → aggregation service (MapReduce-style DAG: map, aggregate, reduce) → Kafka → aggregated DB. Raw events are stored too, so you can recompute if there's a bug.",
+"Kappa architecture: one streaming path handles both real-time and reprocessing (replay raw data). Lambda keeps two paths (batch + stream), more code to maintain.",
+"Event time (when the click happened) is accurate for billing; processing time is when you see it. Late events are handled with a watermark: keep a window open a bit longer, trading latency for accuracy.",
+"Tumbling windows (fixed, non-overlapping) for per-minute counts. Sliding windows for 'top N in the last M minutes'.",
+"Exactly-once matters: duplicates mean overbilling. Commit offsets and results together (atomically), dedupe events.",
+"End-of-day reconciliation: batch job recomputes from raw data and compares with real-time results."],
+q:[{q:"For billing accuracy, aggregate by…",o:["Event time, with a watermark for late events","Processing time","Random time","Server boot time"],why:"Network delays shouldn't move a click into the wrong minute."},
+{q:"'Clicks per ad for every minute' needs which window?",o:["Tumbling window","Sliding window","Session window","No window"],why:"Fixed, non-overlapping one-minute buckets."},
+{q:"'Top 100 ads in the last 5 minutes, updated every minute' needs…",o:["Sliding window","Tumbling window only","No aggregation","A daily batch"],why:"The window moves over time."},
+{q:"Why keep raw click data after aggregating?",o:["To recompute if there's a bug, and for reconciliation","Raw data is required by Kafka","To make queries faster","No reason"],why:"Raw data is the source of truth."},
+{q:"Kappa vs Lambda: what does Kappa do?",o:["One streaming pipeline for both real-time and reprocessing","Two separate batch and stream pipelines","Only batch processing","Only reads from cache"],why:"Less duplicated logic."},
+{q:"An aggregator crashes after updating results but before committing the Kafka offset. Risk?",o:["Events reprocessed and counted twice; commit results and offset atomically","Events lost forever","Nothing","The window closes early"],why:"This is why exactly-once needs careful offset handling."}],
+ex:{p:"Explain how you'd make ad click counts correct enough for billing.",pts:["Event time + watermark for late events","Right window type (tumbling/sliding)","Exactly-once: atomic offset + result commit, dedupe","Keep raw data","Reconciliation batch job","Kafka between stages, snapshots for recovery"]}},
+
+{t:"Hotel Reservation System",w:3,dir:"22.%20Hotel%20Reservation%20System",
+learn:["Use a relational DB: read-heavy, structured data, and ACID transactions to prevent double booking.",
+"Guests book a room type, not a specific room. Inventory table: (hotel_id, room_type_id, date, total_inventory, total_reserved), one row per day, so date-range checks are simple.",
+"Double click / retry → duplicate booking. Fix with an idempotency key (reservation_id generated up front) under a unique constraint.",
+"Two users booking the last room at once: pessimistic locking (SELECT ... FOR UPDATE, safe but slow, deadlock risk), optimistic locking (version column, retry on conflict; good when contention is low), or DB constraint (CHECK total_reserved <= total_inventory).",
+"Hotels allow overbooking (e.g. 110%), which is just a different limit in the check.",
+"Scale: shard by hotel_id; cache inventory in Redis for fast reads, but the DB is the source of truth and does the final check.",
+"Across microservices, use 2PC or Saga for consistency, or keep reservation + inventory in one DB to avoid it."],
+q:[{q:"A user double-clicks 'Book'. How do you avoid two reservations?",o:["Idempotency key (reservation_id) with a unique constraint","Disable JavaScript","Pessimistic locking on the user table","Ask the user to wait"],why:"The second insert with the same key fails cleanly."},
+{q:"Contention for rooms is usually low. Which concurrency control fits best?",o:["Optimistic locking with a version number","Pessimistic locking everywhere","No control","Global lock on the DB"],why:"Rare conflicts → just retry when they happen."},
+{q:"The Redis cache says a room is free but the DB says it's full. What happens?",o:["The DB check wins; the booking fails. Cache is for speed, DB is truth","The cache wins","Both are updated randomly","The user gets two rooms"],why:"Inconsistency in cache is acceptable if the DB enforces the rule."},
+{q:"Why one inventory row per room type per date?",o:["Booking checks and updates are simple per-date range queries","It saves storage","Hotels require it","To avoid indexes"],why:"A 3-night stay updates 3 rows in one transaction."},
+{q:"Saga vs 2PC for multi-service bookings?",o:["Saga: local transactions + compensations, no long locks; 2PC: atomic but blocking","Saga is atomic; 2PC isn't","They are identical","2PC needs no coordinator"],why:"Saga gives eventual consistency; 2PC holds locks and needs a coordinator."}],
+ex:{p:"Explain how you prevent double booking in a hotel system.",pts:["Relational DB with ACID","Idempotency key for duplicate requests","Concurrency: pessimistic vs optimistic vs DB constraint","Choose optimistic for low contention","Inventory per room type per date","Cache for reads, DB is source of truth"]}},
+
+{t:"Distributed Email Service",w:3,dir:"23.%20Distributed%20Email%20Service",
+learn:["Protocols: SMTP to send between servers. POP downloads and usually deletes from server. IMAP keeps mail on the server and syncs across devices. Webmail clients talk HTTPS.",
+"DNS MX records tell senders which mail server receives for a domain.",
+"Old style: mail in local file folders (Maildir). Doesn't scale to billions of emails or much disk I/O.",
+"Modern design: web servers, real-time servers (WebSocket to push new mail), metadata DB, attachment store (object storage like S3), distributed cache, search store.",
+"Metadata in a wide-column NoSQL (Bigtable/Cassandra) partitioned by user_id, since all queries are per user. Emails clustered by a time-sorted ID. NoSQL can't filter well, so denormalize: e.g. separate read and unread tables.",
+"For one mailbox, prefer consistency over availability: a single primary per mailbox.",
+"Deliverability: warm up new IPs slowly, dedicated IPs, ban spammers, SPF/DKIM/DMARC, handle feedback (bounces, complaints)."],
+q:[{q:"A user wants email kept on the server and synced on phone and laptop. Which protocol?",o:["IMAP","POP","SMTP","FTP"],why:"POP is for download-and-delete; SMTP is for sending."},
+{q:"Where do 25 MB attachments go?",o:["Object storage (S3) with a reference in metadata","A BLOB column in the metadata DB","The search index","The cache"],why:"Large blobs bloat DBs and caches."},
+{q:"Why partition email metadata by user_id?",o:["Almost every query is scoped to one user's mailbox","It balances by email size","Required by SMTP","For full-text search"],why:"Keeps a mailbox's data together."},
+{q:"How do you fetch 'unread emails' efficiently in a NoSQL store?",o:["Denormalize into separate read/unread tables","Scan all emails and filter","Add a SQL join","Use POP"],why:"Model tables around queries in NoSQL."},
+{q:"A new sending IP's emails land in spam. Why and fix?",o:["New IPs have no reputation; warm up volume gradually","SMTP is broken","Attachments too big","Need more replicas"],why:"Inbox providers trust IPs over time."}],
+ex:{p:"Explain what happens when you send an email to someone at another provider.",pts:["Client → web server (HTTPS)","Basic checks, store in sent folder, put in outgoing queue","SMTP outgoing workers check spam/virus","DNS MX lookup for recipient domain","SMTP to recipient server","Retry/error handling, deliverability (SPF/DKIM, reputation)"]}},
+
+{t:"S3-like Object Storage",w:3,dir:"24.%20S3-like%20Object%20Storage",
+learn:["Storage types: block (raw disk, fast), file (folders, shared), object (flat, HTTP API, immutable, huge scale, cheaper). Objects live in buckets; you replace, not edit.",
+"Separate metadata (small, mutable, needs queries) from data (large, immutable). Like a UNIX inode pointing to data blocks.",
+"Components: API service, IAM, metadata store, data store. Data store: data routing service, placement service (cluster map + heartbeats), data nodes.",
+"Durability: 3 replicas across failure domains ≈ 6 nines. Erasure coding (e.g. 8 data + 4 parity) gives higher durability at ~1.5× storage instead of 3×, but costs more CPU and slower reads.",
+"Many tiny objects as separate files waste disk blocks and run out of inodes. Pack small objects into large append-only files; a lookup table maps object_id → (file, offset, size).",
+"Checksums detect corrupted data (bit rot). Multipart upload splits big files so failed parts can be retried. Deletes just mark objects; garbage collection compacts later.",
+"Shard metadata by hash(bucket, object name). Listing objects across shards is hard, so keep a denormalized listing table."],
+q:[{q:"Why separate metadata from object data?",o:["They have different sizes, access patterns, and mutability, so each can scale its own way","To save code","Required by HTTP","Metadata is secret"],why:"Small mutable metadata vs large immutable blobs."},
+{q:"Erasure coding vs 3× replication: the trade-off?",o:["Erasure coding uses less storage (~1.5×) but more CPU and slower reads/repair","Erasure coding uses more storage","Replication is less durable than nothing","They're identical"],why:"Hot data often replicated; cold data erasure coded."},
+{q:"Storing billions of tiny objects as individual files causes…",o:["Wasted disk blocks and inode exhaustion; pack them into large files","Faster reads","No issues","Better compression"],why:"File systems aren't built for that many tiny files."},
+{q:"Uploading a 5 GB file over a flaky connection. Best approach?",o:["Multipart upload: split into parts, retry only failed parts","Single PUT and hope","Email it","Compress to 1 KB"],why:"Parts upload in parallel and resume."},
+{q:"How do you detect silent data corruption?",o:["Store checksums and verify on read","Read twice","Trust disks","Use bigger disks"],why:"Bad replica → read from another and repair."}],
+ex:{p:"Explain how an object upload is stored durably.",pts:["API + IAM auth","Data routing → placement service picks nodes","Write to primary data node, replicate across failure domains (or erasure code)","Small objects packed into big files, lookup table","Checksum","Metadata stored separately (sharded)"]}},
+
+{t:"Real-time Gaming Leaderboard",w:3,dir:"25.%20Real-time%20Gaming%20Leaderboard",
+learn:["Show the top 10 players and any player's own rank, updated in real time. Example: 5M DAU.",
+"SQL ORDER BY works for small tables, but computing a user's rank means counting/scanning many rows while scores change constantly. Too slow at scale.",
+"Redis sorted sets: a hash map + skip list. ZINCRBY to add points, ZREVRANGE for top 10, ZREVRANK for a player's rank, all O(log n).",
+"Storage is small: tens of millions of users × small entries ≈ hundreds of MB, fits on one Redis node (with replica + persistence).",
+"Keep a DB (MySQL) for game history and recovery; cache user profiles for displaying the top 10.",
+"Score updates must come from the game server, never directly from the client (cheating).",
+"Scaling beyond one node: fixed partition by score range (easy top-k, but players move between shards), or hash partition (Redis Cluster; top-k needs scatter-gather). Ties: break by who reached the score first."],
+q:[{q:"Why not just use SQL with ORDER BY score for each rank lookup?",o:["Ranking needs scanning/sorting many rows while scores change constantly","SQL can't sort","SQL can't store integers","It's fine at any scale"],why:"Works for small games, fails at millions of active players."},
+{q:"Redis sorted sets use which structure for fast ranking?",o:["Skip list (+ hash map), O(log n)","Linked list, O(n)","Bloom filter","B-tree only on disk"],why:"Skip lists give fast insert, rank, and range."},
+{q:"With hash-partitioned Redis, how do you get the global top 10?",o:["Scatter-gather: get top 10 from each shard and merge","Read one shard","Impossible","Sort all data on the client"],why:"Cost grows with shard count."},
+{q:"Who should send score updates to the leaderboard?",o:["The game server, after validating the result","The player's client directly","Any user","The CDN"],why:"Clients can be tampered with."},
+{q:"Two players have the same score. Fair tie-break?",o:["Whoever reached it first (store timestamp)","Alphabetical","Random each time","Higher user ID"],why:"Stable and fair."}],
+ex:{p:"Explain why Redis sorted sets fit a leaderboard and how you'd scale past one node.",pts:["Sorted set = hash + skip list","ZINCRBY / ZREVRANGE / ZREVRANK, O(log n)","SQL rank is too slow at scale","Fits in memory; DB for persistence","Scale: score-range shards vs hash shards (scatter-gather)","Server-authoritative updates; tie-break by time"]}},
+
+{t:"Payment System",w:3,dir:"26.%20Payment%20System",
+learn:["Pay-in: customer → payment service → payment executor → PSP (e.g. Stripe) → card networks. Then update the wallet (balances) and ledger (records).",
+"Use the PSP's hosted payment page so card data never touches your servers (avoids most PCI DSS burden).",
+"Ledger uses double-entry: every transaction is a debit and an equal credit. All entries sum to zero, so errors are traceable.",
+"Failures: retry with exponential backoff. Messages that keep failing go to a dead letter queue.",
+"Exactly-once = at-least-once (retries) + at-most-once (idempotency). Clients send an idempotency key (e.g. header); the server enforces it with a unique constraint.",
+"Reconciliation: nightly compare your ledger with PSP/bank settlement files to catch mismatches.",
+"Async messaging (Kafka) between services avoids tight coupling; track payment status as a state machine."],
+q:[{q:"A customer clicks 'Pay' twice. How do you charge once?",o:["Idempotency key: second request returns the first result","Ask them to call support","Refund later","Lock their account"],why:"Same key → same outcome."},
+{q:"Your call to the PSP times out. Did it charge? What now?",o:["Retry with the same idempotency key (or check status) so it's never charged twice","Assume failure and charge again with a new key","Assume success and do nothing","Refund immediately"],why:"Unknown outcomes are why idempotency exists."},
+{q:"Why double-entry accounting?",o:["Every debit has a matching credit, totals sum to zero, so money can't silently appear or vanish","It's faster","It needs no DB","It's required by HTTP"],why:"Built-in consistency check and audit trail."},
+{q:"Why use a PSP's hosted payment page?",o:["Card details never hit your servers, cutting PCI compliance scope and risk","It's prettier","It's faster","It removes the need for a ledger"],why:"Less sensitive data = less risk."},
+{q:"A payment message fails after many retries. Where should it go?",o:["Dead letter queue for inspection","Delete it","Retry forever","Charge the customer again"],why:"Keeps the main queue moving while preserving the message."},
+{q:"Purpose of reconciliation?",o:["Detect mismatches between your records and PSP/bank records","Speed up checkouts","Encrypt data","Rate limit users"],why:"Distributed systems drift; reconciliation is the last line of defense."}],
+ex:{p:"Explain how a payment system guarantees a user is charged exactly once.",pts:["Retries with backoff → at-least-once","Idempotency key + unique constraint → at-most-once","Combined = exactly-once effect","Handle PSP timeouts by retrying with same key/checking status","Dead letter queue","Reconciliation catches leftovers"]}},
+
+{t:"Digital Wallet",w:3,dir:"27.%20%20Digital%20Wallet",
+learn:["Transfer balance between wallets, ~1M transfers/s, with strict correctness and auditability.",
+"In-memory sharded store (Redis) is fast, but a transfer touching two shards isn't atomic. You need distributed transactions.",
+"2PC: coordinator asks all to prepare (locks), then commit. Atomic, but locks are held long and the coordinator is a single point of failure.",
+"TC/C (Try-Confirm/Cancel): app-level reservation then confirm, or compensate on failure. Saga: steps in order, each with a compensating action; choreography (events) or orchestration (central coordinator).",
+"Event sourcing: commands → validated → events (immutable facts) → applied to state. Replaying events reproduces any past balance, which auditors love. CQRS: build read views from the event stream.",
+"Replays get slow, so take snapshots periodically. For speed, use local files with mmap or RocksDB; replicate the event list with Raft for reliability."],
+q:[{q:"Auditors ask: 'Prove what this account's balance was on March 3rd.' What design makes that easy?",o:["Event sourcing: replay events up to that date","Only storing current balance","Daily DB backups","Caching"],why:"State is derived from an immutable event log."},
+{q:"Moving money between two Redis shards must be atomic. You need…",o:["A distributed transaction (2PC, TC/C, or Saga)","A bigger Redis","Two separate writes with no coordination","A CDN"],why:"Single-node atomicity doesn't span shards."},
+{q:"Main downside of 2PC?",o:["Locks held during the protocol and a coordinator single point of failure","Not atomic","Requires event sourcing","Too simple"],why:"Blocking under failure."},
+{q:"Command vs event in event sourcing?",o:["A command is a request that may be rejected; an event is a validated fact that happened","They're identical","Events can be rejected; commands can't","Commands are stored forever, events aren't"],why:"Events are immutable history."},
+{q:"Rebuilding state from millions of events is too slow. Fix?",o:["Periodic snapshots; replay only events after the snapshot","Delete old events","Skip validation","Use 2PC"],why:"Standard event sourcing optimization."}],
+ex:{p:"Explain event sourcing for a wallet and why it helps correctness and audits.",pts:["Command → validation → event","Events are immutable, append-only","State = replay of events","Reproducible history for audits","Snapshots speed up replay","CQRS for read views; Raft for replication"]}},
+
+{t:"Stock Exchange",w:3,dir:"28.%20Stock%20Exchange",
+learn:["Needs: very low latency, fairness, and determinism (same input → same output).",
+"Critical path: client gateway → order manager (risk checks, funds) → sequencer → matching engine → sequencer → market data publisher and reporter.",
+"Order book per symbol: buy and sell sides at price levels. Each price level is a doubly linked list of orders (FIFO) and a map orderId → node, so add/cancel is O(1).",
+"Matching uses price-time priority: best price first, then earliest order.",
+"Sequencer stamps every order and execution with a sequence number. That makes processing deterministic and replayable.",
+"For speed: put everything on one server, connect components through mmap shared memory, run a single-threaded application loop pinned to a CPU core, no locks, no context switches.",
+"Reliability: event sourcing + hot-warm matching engines (the warm one replays the same events). Raft for cluster failover. Fair market data via multicast so everyone gets it at the same time."],
+q:[{q:"Why run the matching engine as a single thread pinned to a CPU core?",o:["No locks or context switches, low latency, and deterministic order","Multi-threading is impossible","To save electricity","CPUs require it"],why:"Predictable, fast processing."},
+{q:"How do you cancel an order in O(1)?",o:["Map orderId → node in a doubly linked list at its price level","Scan the entire book","Sort the book again","Binary search a vector"],why:"Direct pointer + unlink."},
+{q:"What does the sequencer provide?",o:["A global order of events, making processing deterministic and replayable","Encryption","Load balancing","Market data charts"],why:"Order + replay are the basis of recovery."},
+{q:"Two buy orders at the same price. Which fills first?",o:["The earlier one (price-time priority)","The bigger one","Random","The one with a lower ID always"],why:"Fairness: first come, first served at the same price."},
+{q:"The primary matching engine dies. How does the backup have identical state?",o:["It consumes the same sequenced event stream (hot-warm with event sourcing)","Copies RAM every hour","Restarts empty","Asks clients to resend"],why:"Determinism means same events → same state."},
+{q:"How do you make market data fair to all subscribers?",o:["Multicast so everyone receives it at the same time","Send to VIP clients first","Email it","Let clients poll randomly"],why:"Unicast order could favor some clients."}],
+ex:{p:"Explain how a stock exchange keeps latency low and state deterministic.",pts:["Critical path components","Sequencer stamps every event","Single-threaded loop pinned to core, no locks","mmap shared memory, one server","Order book: linked list + map, O(1)","Event sourcing + hot-warm failover"]}}
+];
+
+// One plain-words line per unit, shown first in Learn.
+const BIG=["Every scaling step fixes one thing that broke: too much load, or one machine dying and taking everything down.",
+"Quick math with round numbers tells you which parts of the design need to be big.",
+"Clarify, sketch, go deep, then critique yourself: 4 steps, talking the whole time.",
+"A bouncer that counts each client's requests and says 'slow down' (HTTP 429) when they go over.",
+"Put servers on a circle so adding or removing one only moves a few keys.",
+"Spread data over many machines, keep copies, and choose: always correct or always answering.",
+"Pack time + machine + counter into one 64-bit number: unique and sortable.",
+"Turn a long URL into 7 characters, and send people back to the long one.",
+"Visit the web level by level, politely, skipping what you've already seen.",
+"One queue per channel, so one broken provider doesn't block the rest.",
+"Build feeds ahead of time for normal users; fetch celebrities' posts when the feed is opened.",
+"Keep a live connection open so the server can push messages instantly.",
+"Pre-compute the top suggestions for every prefix so typing feels instant.",
+"Upload once, convert to many sizes, stream the right size from close to the viewer.",
+"Cut files into blocks and upload only the blocks that changed.",
+"Group the map into cells so 'what's near me?' becomes a quick lookup.",
+"Each user broadcasts their location on a channel; only nearby friends get notified.",
+"Static map tiles come from a CDN; routes are found on a road graph cut into tiles.",
+"An append-only log, split into partitions, read by groups of consumers.",
+"Collect numbers over time, store them compactly, alert when they look wrong.",
+"Count clicks in time windows, correctly enough to send someone a bill.",
+"Count rooms per day and make sure two people can't grab the last one.",
+"Store mail per user, attachments in object storage, and protect your sending reputation.",
+"Keep small metadata apart from big unchangeable files, and never lose a byte.",
+"A sorted set gives the top 10 and anyone's rank in O(log n).",
+"Move money exactly once: retries + idempotency keys + a ledger that always balances.",
+"Save every change as an event, so any balance can be replayed and proven.",
+"One fast thread, a strict order of events, the same result every time."];
+
+// Diagrams, one per question, same order as U[unit].q.
+const D=[
+[["👤 You@0,1|⚖️ Load balancer@1,1|🖥️ Server A@2,0|🖥️ Server B@2,2|~🗃️ Shared session store@3,1",[["0>1","You log in"],["1>2","Server A remembers you, in its own memory"],["0>1","You click again"],["1>3","This time the load balancer picks Server B"],["3!","B has never seen you, so you're logged out"],["4+","Fix: keep sessions in one shared store"],["2>4 3>4","Now every server reads the same session"]]],
+ ["🖥️ App@0,1|⚡ Cache@1,2|🗄️ Primary DB@2,0|~📖 Read replica@2,1|~📖 Read replica@2,2",[["0>2","Every read hits the one database"],["0>2","…and again. 95% of the work is reads"],["2!","CPU at 90%"],["3+ 4+","Add read replicas: copies of the data"],["2>3,4","Primary copies new writes to them"],["0>3 0>4","Reads now spread across replicas"],["1+","A cache in front answers the most repeated reads"]]],
+ ["👥 Users@0,1|🖥️ One big server@1,1|~🖥️ Server 2@2,0|~🖥️ Server 3@2,2",[["0>1","All traffic goes to one big machine"],["1!","Bigger and bigger… until there's no bigger machine to buy"],["1-","And if it dies, the whole site is down"],["2+ 3+","Horizontal: many normal machines"],["0>2 0>3","One dies? The others keep serving"]]],
+ ["👥 Fans@0,1|🗂️ Shard 1@2,0|🗂️ Shard 2 (celebrity)@2,1|🗂️ Shard 3@2,2|~🗂️ Celebrity's own shard@3,1",[["0>1,3","Normal users are spread over shards"],["0>2","Millions of fans all want the same celebrity"],["2!","One shard melts: a hot spot"],["4+","Give the hot key its own shard (or split it more)"],["0>4","Load is spread again"]]],
+ ["📱 Upload@0,1|📬 Queue@1,1|⚙️ Worker 1@2,0|⚙️ Worker 2@2,2",[["0>1","Upload drops a job in the queue and returns at once"],["0>1","More uploads? They just wait in line"],["1>2,3","Workers pull jobs at their own pace"],["2-","A worker crashes…"],["1>3","…jobs stay safe in the queue; the other worker continues"]]]],
+[["👥 100M users@0,0|✍️ × 2 posts each@1,0|📅 = 200M per day@2,0|⏱️ ÷ 86,400 s@3,0|📈 ≈ 2,300 per second@4,0",[["0>1","Each user posts twice"],["1>2","200 million posts a day"],["2>3","Divide by seconds in a day (round to 100k)"],["3>4","≈ 2,300 writes every second"],["4+","Peak ≈ 2× → about 4,600"]]],
+ ["📅 1 year = 525,600 min@0,0|🎯 99.99% up@1,0|😴 0.01% down@2,0|⏱️ ≈ 52 minutes@3,0",[["0>1","A year in minutes"],["1>2","What's left is allowed downtime"],["2>3","525,600 × 0.0001 ≈ 52 minutes"],["3+","Each extra 9 cuts downtime about 10×"]]],
+ ["⚡ L1 cache: 0.5 ns@0,0|🧠 Memory: 100 ns@1,0|📦 1 MB from memory: 250 µs@2,0|🌍 USA ↔ Europe: 150 ms@3,0",[["0>1","Memory is ~200× slower than L1 cache"],["1>2","Reading a whole MB takes microseconds"],["2>3","Crossing an ocean takes milliseconds: ~1000× slower again"],["3!","That's why CDNs and nearby data centers exist"]]],
+ ["📝 10M posts/day@0,0|🖼️ 10% have 1 MB media@1,0|💾 1 TB per day@2,0|📆 × 365 × 5 years@3,0|🗄️ ≈ 1.8 PB@4,0",[["0>1","Only 1 in 10 posts has media"],["1>2","1M × 1 MB = 1 TB a day"],["2>3","Keep it 5 years"],["3>4","≈ 1,825 TB ≈ 1.8 PB"]]],
+ ["❓ Assume@0,0|🔢 Round@1,0|📏 Units@2,0|✅ Answer@3,0",[["0>1","Say your assumptions out loud"],["1>2","Round: 86,400 → 100,000"],["2>3","Write units (QPS, TB) every time"],["3+","A clear process beats an exact number"]]]],
+[["🧑‍💼 Interviewer@0,0|🙋 You@2,0|📝 Requirements@2,1|🏗️ Design@3,1",[["0>1","'Design a news feed'"],["1>0","'Mobile or web? How many users? Images?'"],["0>1","Answers"],["1>2","Write them down"],["2>3","Now design for what you actually know"]]],
+ ["🙋 You@0,1|🧑‍💼 Interviewer@1,0|🗃️ Caching@2,2|📊 Ranking@2,0",[["0>2","You start talking about caching"],["1>0","'How is the feed ranked?'"],["1>0","'…and how would you rank it?'"],["3+","That's a signal! Follow it"],["0>3","Dive into ranking"]]],
+ ["🏗️ Your design@0,0|🔥 Bottlenecks@1,0|💥 Failures@2,0|📈 10× growth@3,0",[["0>1","Point at the weak spots yourself"],["1>2","What happens when parts fail?"],["2>3","What changes with 10× more users?"],["3+","Self-critique = seniority"]]],
+ ["❓ Unclear problem@0,1|🏯 Kafka + 9 microservices@2,0|✅ Simple design that fits@2,2|📋 Clarify first@1,1",[["0>1","Jumping straight to a giant system…"],["1!","Red flag: complexity with no reason"],["3+","Instead: ask questions first"],["0>3","Clarify"],["3>2","Then build only what's needed"]]]],
+[["👤 Client@0,1|🪟 Minute 1 (max 5)@1,0|🪟 Minute 2 (max 5)@1,2|🖥️ API@2,1",[["0>1","0:59 → 5 requests: fine for minute 1"],["1>3","All pass"],["0>2","1:01 → 5 more: fine for minute 2"],["2>3","All pass"],["3!","10 requests in 2 seconds! Sliding windows fix this"]]],
+ ["⏲️ Refill 1 token/s@0,0|🪣 Bucket (max 4)@1,0|📨 Requests@0,1|🖥️ API@2,0",[["0>1","Tokens drip in at a steady rate"],["0>1","The bucket fills up to 4"],["2>1","A burst of 4 requests arrives"],["1>3","Each spends a token and passes: bursts are OK"],["1!","Bucket empty → next request gets 429 until it refills"]]],
+ ["⬅️ Previous minute: 5@0,0|➡️ This minute: 3@2,0|🧮 3 + 5 × 70%@1,1|✅ 6.5 < 7 → allowed@3,1",[["1>2","Count this minute: 3"],["0>2","The previous minute still covers 70% of our window: 5 × 0.7 = 3.5"],["2>3","3 + 3.5 = 6.5, below the limit of 7"],["3+","Request allowed"]]],
+ ["🖥️ Limiter A@0,0|🖥️ Limiter B@0,2|🗃️ Redis counter@2,1",[["2>0,1","Both read 3 at the same time"],["0>2 1>2","Both write 4"],["2!","2 requests, but the count only went up by 1"],["2+","Fix: read + add in one atomic step (Lua script)"]]],
+ ["🛡️ Limiter@0,1|⚡ Redis (memory)@2,0|🐢 SQL database (disk)@2,2",[["0>1","Check the counter in memory: microseconds"],["0>2","Check the counter on disk: much slower"],["2!","This runs on EVERY request → too slow"],["1+","Redis: fast, INCR + auto-expire"]]]],
+[["🔑 Keys@0,1|🖥️ Server 0@1,0|🖥️ Server 1@2,0|🖥️ Server 2@3,0|🖥️ Server 3@4,0",[["0>1,2,3,4","hash % 4 spreads keys over 4 servers"],["4-","Server 3 dies → now it's hash % 3"],["0>1,2,3","Almost every key now lands on a different server"],["1! 2! 3!","Cache misses everywhere → database flooded"]]],
+ ["🖥️ S0@2,0|🖥️ S1@4,1|🖥️ S2@2,2|🖥️ S3@0,1|🔑 Key k@0,0|~🖥️ S4@1,0",[["4>0","Key k walks clockwise to the first server: S0"],["5+","Add S4 between S3 and S0"],["4>5","Now k hits S4 first, so it moves"],["1+ 2+ 3+","Every other key stays where it was"]]],
+ ["🖥️ A owns 70%@0,0|🖥️ B owns 20%@1,0|🖥️ C owns 10%@2,0|~🧩 Each server placed 100× on the ring@1,1",[["0!","Uneven slices → A is overloaded"],["3+","Virtual nodes: each server appears at many spots"],["3>0,1,2","Many small slices average out → about 33% each"],["0+ 1+ 2+","Balanced"]]],
+ ["🧩 More virtual nodes@0,0|⚖️ Better balance@2,0|📒 Bigger routing table@2,1",[["0>1","More spots → smoother balance"],["0>2","…but more metadata to store and search"],["2!","Tune the number: balance vs memory"]]]],
+[["✍️ Write (W=2)@0,1|🗄️ Node 1@2,0|🗄️ Node 2@2,1|🗄️ Node 3@2,2|📖 Read (R=2)@4,1",[["0>1,2","The write waits for 2 of 3 nodes to confirm"],["1+ 2+","Nodes 1 and 2 have the new value"],["4>2,3","A read asks any 2 nodes, say 2 and 3"],["2+","Node 2 is in both groups → the read sees the newest value"],["","W + R = 4 > 3, so they always overlap"]]],
+ ["🏦 Data center 1@0,1|✂️ Network cut@1,1|🏦 Data center 2@2,1|👤 User@3,1",[["0>2","Normally balances sync between data centers"],["1!","Network cut! DC 2 can't get new updates"],["3>2","User asks DC 2 for their balance"],["2!","CP: answer 'try later' instead of a maybe-wrong balance"]]],
+ ["🌳 Root (differs)@1,0|🌿 Keys 1-50@0,1|🌿 Keys 51-100@2,1|🍃 Keys 51-75@1,2|🍃 Keys 76-100@3,2",[["0!","Roots differ → something is out of sync"],["0>1,2","Compare the two halves"],["1+ 2!","Left matches: skip it. Right differs"],["2>3,4","Go down only the bad branch"],["3+ 4!","Found it: sync only keys 76-100"]]],
+ ["✍️ Write@0,1|🗄️ Node A@2,0|🗄️ Node B@2,1|🗄️ Node C (helper)@2,2",[["1-","Node A is down"],["0>2,3","The write goes to B and to helper C"],["3+","C keeps a note: 'this belongs to A'"],["1+","A comes back"],["3>1","C hands the data back (hinted handoff)"]]],
+ ["🔎 Get key@0,1|🧠 Memtable@1,1|🌸 Bloom filters@2,1|💾 SSTable 1@3,0|💾 SSTable 2@3,1|💾 SSTable 3@3,2",[["0>1","Check memory first: not there"],["1>2","Ask the Bloom filters: which files might have it?"],["3- 5-","'Definitely not' in files 1 and 3"],["2>4","Read only file 2 from disk"]]],
+ ["🖥️ A@0,0|🖥️ B@2,0|🖥️ C@4,0|🖥️ D@1,2|🖥️ E@3,2",[["0>3","A tells D its heartbeat list"],["3>1","D tells B"],["1>4","B tells E"],["4>2","E tells C: everyone knows, with few messages"],["2-","If someone's heartbeat stops going up, they're marked down"]]]],
+[["🎲 UUID@0,0|📏 128 bits@1,0|🔤 Letters + dashes@2,0|🔀 Random order@3,0",[["0>1","Too long: we need 64 bits"],["1>2","Not a plain number"],["2>3","Not sorted by time"],["3!","Unique, but fails our needs"]]],
+ ["⏱️ Same millisecond@0,0|🔢 Sequence 0…4095@1,0|🆔 4,096 unique IDs@2,0",[["0>1","12 bits = 2¹² = 4,096 values"],["1>2","Up to 4,096 IDs per ms per machine"],["0+","Next millisecond → sequence starts at 0 again"]]],
+ ["🖥️ App 1@0,0|🖥️ App 2@0,1|🖥️ App 3@0,2|🎟️ Ticket server@2,1",[["0>3 1>3 2>3","Everyone asks one server for the next ID"],["3-","It dies…"],["0! 1! 2!","No one can create IDs: single point of failure"]]],
+ ["🆔 [time | dc | machine | seq]@1,0|🕐 10:00 → smaller ID@0,1|🕑 10:01 → bigger ID@2,1",[["0>1","Time sits in the highest bits"],["0>2","Later time → bigger number"],["2+","Sorting IDs = sorting by time"]]],
+ ["🕐 Clock 10:00:05@0,0|↩️ Clock reset to 10:00:03@1,0|🆔 Same IDs again@2,0",[["0>1","The clock jumps backwards"],["1>2","Timestamps repeat → duplicate IDs"],["2!","Fix: wait until the clock catches up"]]]],
+[["👤 Browser@0,1|🔗 Short URL server@1,1|📊 Analytics@1,0|🌐 Real page@2,1",[["0>1","Click the short link"],["1>2","302: we count the click"],["1>0","Redirect"],["0>3","Browser goes to the real page"],["0>1","Next click comes to us again (with 301 the browser would skip us)"]]],
+ ["🔤 62 characters@0,0|7️⃣ 7 positions@1,0|🔢 62⁷ ≈ 3.5 trillion@2,0|✅ More than 365 billion needed@3,0",[["0>1","Each position can be one of 62"],["1>2","62 × 62 × … 7 times"],["2>3","Enough room for 10 years of links"]]],
+ ["🆔 ID 1000@0,0|🔤 → 'g8'@1,0|🆔 ID 1001@0,1|🔤 → 'g9'@1,1|🕵️ Attacker@2,1",[["0>1","IDs turn into short codes"],["2>3","Next ID → next code"],["4!","Anyone can guess the next one and scan all links"]]],
+ ["🔑 New code@0,1|🌸 Bloom filter (memory)@1,1|🗄️ Database@2,1",[["0>1","Ask the fast in-memory filter first"],["1+","'Definitely not used' → save it, no DB lookup"],["1>2","Only on 'maybe' do we check the database"]]]],
+[["🌱 Seed@0,1|📄 Page A@1,0|📄 Page B@1,2|📄 A1@2,0|📄 B1@2,2|🕳️ A1→1→1→1…@4,0",[["0>1,2","BFS: visit all links one level at a time"],["1>3 2>4","Then the next level"],["3>5","DFS would dive down one path…"],["5!","…and get lost very deep"]]],
+ ["📬 Frontier@0,1|📮 Queue: wiki.org@1,0|📮 Queue: news.com@1,2|🤖 Worker 1@2,0|🤖 Worker 2@2,2|🌐 wiki.org@3,0|🌐 news.com@3,2",[["0>1,2","Sort URLs by website"],["1>3 2>4","One worker per website"],["3>5 4>6","Each sends one request, then pauses"],["5+ 6+","No site gets hammered"]]],
+ ["📄 Page 1@0,0|📄 Page 2 (other URL)@0,2|#️⃣ Hash 9f2c@1,0|#️⃣ Hash 9f2c@1,2|♻️ Duplicate!@2,1",[["0>2 1>3","Hash each page's content"],["2>4 3>4","Compare the tiny hashes"],["4!","Same hash → skip page 2"]]],
+ ["🤖 Crawler@0,0|📅 /2026/01@1,0|📅 /2026/02@2,0|📅 /2026/03…@3,0|~🛑 Max URL length / blacklist@2,1",[["0>1","Calendar 'next month' link"],["1>2","Next…"],["2>3","…it never ends: a spider trap"],["3!","Stuck forever"],["4+","Rules stop it"]]],
+ ["🤖 Crawler@0,1|🗂️ DNS cache@1,1|🌐 DNS server (slow)@2,1",[["0>2","First time: ask DNS (10-200 ms)"],["2>1","Save the answer"],["0>1","Next time: instant from the cache"]]]],
+[["🔔 Notification servers@0,1|📬 iOS queue@1,0|📬 Email queue@1,2|🍎 APNs@2,0|✉️ Email provider@2,2",[["0>1,2","Each channel gets its own queue"],["3-","APNs goes down"],["1!","iOS messages wait safely in their queue"],["2>4","Email keeps flowing"]]],
+ ["📬 Queue@0,1|⚙️ Worker@1,1|🗒️ Sent log (event IDs)@1,0|📱 Phone@2,1",[["0>1","Job #42"],["1>3","Push sent"],["1-","Crash before marking it done"],["1+",""],["0>1","Job #42 comes back"],["1>2","Check the log: #42 already sent → skip"]]],
+ ["🔔 Server@0,1|🗄️ Notification log@1,0|⚙️ Worker@2,1|📱 User@3,1",[["0>1","Save it first"],["0>2","Hand it to a worker"],["2-","The worker dies"],["2+",""],["1>2","Retry from the log"],["2>3","Delivered"]]],
+ ["📨 Incoming@0,1|📬 Queue: 50,000 waiting@1,1|⚙️ Worker@2,0|~⚙️ New worker@2,2",[["0>1","Jobs pour in"],["1!","Queue keeps growing → workers are too slow"],["3+","Add workers"],["1>2,3","Queue drains"]]]],
+[["⭐ Celebrity@0,1|🗄️ Posts@1,1|👥 100M followers@3,1|👤 Normal user@0,0|📰 Friends' feeds@2,0",[["3>4","Normal user posts → push into friends' feeds"],["0>1","Celebrity posts → just save it"],["2>1","Followers fetch it when they open the app (pull)"],["2+","No 100M writes"]]],
+ ["📰 Feed cache: post 7, post 9@0,1|🗄️ Post cache@1,0|👤 User cache@1,2|📱 Full feed@2,1",[["0>1","Look up the content of posts 7 and 9"],["0>2","Look up the authors' names and photos"],["1>3 2>3","Assemble the feed"],["0+","Each post is stored once, not in millions of feeds"]]],
+ ["✍️ New post@0,1|📰 Active fan@2,0|💤 Inactive fan@2,1|💤 Inactive fan@2,2",[["0>1,2,3","Push writes into every follower's feed"],["1+","Useful"],["2! 3!","Wasted: they never open the app"]]],
+ ["👤 Opens app@0,1|📰 Feed service@1,1|🗄️ Friend A's posts@2,0|🗄️ Friend B's posts@2,2",[["0>1","The feed is built only when you open it"],["1>2,3","Fetch friends' recent posts"],["2>1 3>1","Merge them (slower read)"],["1>0","No work wasted on people who never log in"]]]],
+[["📱 Phone@0,1|🖥️ Chat server@2,1",[["0>1","Polling: 'Anything new?'"],["1>0","'No'"],["0>1","'Anything new?' (wasteful)"],["0+ 1+","WebSocket: one connection stays open"],["1>0","The server pushes the moment a message arrives"]]],
+ ["📱 Phone@0,1|💓 Presence server@2,1|👥 Friends@3,1",[["0>1","Heartbeat every 5 s"],["0-","Wi-Fi blips for 2 s…"],["0+","…back, heartbeats continue"],["1+","No 30 s gap → still online"],["1>2","Friends never see a flicker"]]],
+ ["💬 Billions of messages@0,1|🗄️ Key-value store over many machines@2,1|📇 One giant relational index@2,0",[["0>2","Relational: the index grows huge"],["2!","Too slow at this scale"],["0>1","KV: split by chat, add machines as needed"],["1+","Fast recent-message reads"]]],
+ ["💬 'Hi' at 10:00:00.123@0,0|💬 'Hey' at 10:00:00.123@0,2|🔢 ID generator@1,1|📜 #1001 Hi, #1002 Hey@2,1",[["0>2 1>2","Same timestamp! Which came first?"],["2>3","Each gets a unique, increasing ID"],["3+","The order is now certain"]]],
+ ["👤 Sender@0,1|📬 Ann's inbox@2,0|📬 Bob's inbox@2,1|📬 Cy's inbox@2,2",[["0>1,2,3","The message is copied into each member's inbox"],["1+ 2+ 3+","Simple: everyone reads their own inbox"],["0!","With 100k members that's 100k copies per message"]]]],
+[["🌳 'b'@0,1|🌿 'be'@1,1|🍃 'bee'…@2,0|🍃 'best'…@2,2|📋 Top 5 saved here@1,0",[["0>1","User typed 'be'"],["1>2,3","Without cache: walk every word below (slow)"],["1>4","With cache: top 5 already stored at this node"],["4+","Instant answer"]]],
+ ["🔎 Searches@0,1|📜 Logs@1,1|🧮 Weekly count@2,1|🌳 New trie@3,1|⚡ Trie cache@4,1",[["0>1","Every search is just logged"],["1>2","Once a week, count them up"],["2>3","Build a fresh trie"],["3>4","Swap it in. Live queries never wait"]]],
+ ["🔤 Queries@0,1|🗂️ Shard a-c@2,0|🗂️ Shard s@2,1|🗂️ Shard t-z@2,2|~🗺️ Shard map@1,1",[["0>2","Lots of words start with 's'"],["2!","Overloaded"],["4+","A shard map splits by real traffic"],["0>4","Route through the map"],["4>1,2,3","Even load"]]],
+ ["🌳 Trie@0,1|🚫 Filter layer@1,1|📱 User@2,1|❌ Bad suggestion@1,0",[["0>1","Suggestions pass through a filter"],["3!","Blocked instantly"],["1>2","The user sees only clean results"],["0+","The trie gets cleaned at the next rebuild"]]]],
+[["🗄️ Storage@0,1|🌍 CDN (costly)@2,0|🏠 Own servers@2,2|👥 Viewers@4,1",[["0>1","Popular videos → CDN"],["1>3","Most views served fast, close to users"],["0>2","Rarely watched videos → your own servers"],["2>3","A bit slower, much cheaper"]]],
+ ["📱 App@0,1|🖥️ API server@1,0|☁️ Cloud storage@2,1",[["0>1","'I want to upload'"],["1>0","'Here's a URL, valid 10 min, upload only'"],["0>2","Upload straight to storage"],["1+","Your servers never carry the big file"]]],
+ ["🎬 Video@0,1|🧩 Chunk 1@1,0|🧩 Chunk 2@1,1|🧩 Chunk 3@1,2|☁️ Storage@3,1",[["0>1,2,3","Split into chunks"],["1>4 2>4 3>4","Upload in parallel"],["3!","Chunk 3 fails"],["3>4","Retry only chunk 3"],["3+",""]]],
+ ["🎞️ 1080p@0,0|🎞️ 720p@0,1|🎞️ 360p@0,2|📱 Player@2,1",[["0>3","Good Wi-Fi → 1080p"],["3!","Signal drops"],["2>3","The player switches to 360p"],["3+","It keeps playing"]]],
+ ["🎬 Original@0,1|🎞️ Video encode@1,0|🔊 Audio encode@1,1|🖼️ Thumbnails@1,2|📦 Merge@2,1",[["0>1,2,3","Split into independent tasks"],["1+ 2+ 3+","All run at the same time"],["1>4 2>4 3>4","Combine the results"]]]],
+[["📄 1 GB file@0,1|🧱 Block 1@1,0|🧱 Block 2 (edited)@1,1|🧱 Block 250@1,2|☁️ Cloud@3,1",[["0>1,2,3","Split into 4 MB blocks, each with a hash"],["2!","Only block 2's hash changed"],["2>4","Upload just that block"]]],
+ ["💻 Laptop@0,1|🔔 Notification service@2,1",[["0>1","'Tell me when something changes' (request stays open)"],["1>0","A change! Respond"],["0>1","Reconnect and wait again"],["1+","Rare, one-way updates → long polling is enough"]]],
+ ["👤 Ann@0,0|👤 Bob@0,2|🖥️ Server@1,1|📄 report.docx@2,0|📄 report (Bob's conflict copy)@2,2",[["0>2 1>2","Both save at the same time"],["2>3","Ann's arrived first → it wins"],["2>4","Bob gets a conflict copy. Nothing lost"]]],
+ ["📱 Phone@0,0|💻 Laptop@0,2|🗄️ Relational metadata DB (ACID)@2,1",[["0>2","Rename a file"],["2>1","The laptop sees exactly the same state"],["2+","Strong consistency: no device sees a different version"]]],
+ ["📄 File A@0,0|📄 File B@0,2|🧱 Block hash 7af@1,1|☁️ Stored once@2,1",[["0>2 1>2","Both files contain the same block"],["2>3","Same hash → store it once"]]]],
+[["☕ Cafe 1 (9q8yy)@1,1|☕ Cafe 2 (9q8zn)@2,1|🧭 You@1,0|~⬜ 8 neighbor cells@3,0",[["2>0","Search your own cell: finds Cafe 1"],["1!","Cafe 2 is 10 m away but in another cell"],["3+","So also search the 8 neighbor cells"],["2>3","Now Cafe 2 is found too"],["1+",""]]],
+ ["🌍 World@1,0|🏙️ City (split again)@0,1|🏜️ Desert (one big cell)@2,1|🏢 Block@0,2|🏢 Block@1,2",[["0>1,2","Split into 4"],["1!","Too many businesses → split again"],["1>3,4","Small cells where it's dense"],["2+","Empty areas stay big"]]],
+ ["📍 37.77491, -122.41941@0,0|📍 37.77493, -122.41940@0,2|🔑 Geohash 9q8yy@1,1|⚡ Cache hit@2,1",[["0>2 1>2","Tiny moves → same geohash cell"],["2>3","Same cache key → hit"]]],
+ ["🖥️ Server start@0,1|🗄️ 200M businesses@1,1|🌳 Quadtree in RAM@2,1",[["1>2","Load and build: takes minutes"],["0!","The server can't serve until it's done"],["0+","Roll out a few servers at a time"]]],
+ ["✏️ Owner edits business@0,1|🗄️ Business DB@1,1|🌙 Nightly job@2,1|🌳 Search index@3,1",[["0>1","Saved now"],["1>2","Picked up tonight"],["2>3","Search shows it tomorrow: fine for this product"]]]],
+[["👥 10M users@0,0|⏱️ Every 30 s@1,0|📈 ≈ 334k updates/s@2,0",[["0>1","Each one sends a location every 30 s"],["1>2","10,000,000 ÷ 30 ≈ 334,000 per second"]]],
+ ["📍 Ann's location (TTL 10 min)@0,1|⏳ No updates…@1,1|🗑️ Expired@2,1",[["0>1","Saved with a timer. Ann closes the app"],["1>2","The timer runs out → deleted automatically"],["2+","No cleanup job needed"]]],
+ ["📱 Ann@0,1|🔌 Ann's WS server@1,1|📢 Channel: Ann@2,1|🔌 Bob's handler@3,0|🔌 Cy's handler@3,2|📱 Bob (2 mi)@4,0|📱 Cy (40 mi)@4,2",[["0>1","Ann sends her location"],["1>2","Publish to Ann's channel"],["2>3,4","Subscribers get it"],["3>5","Bob is close → push"],["4!","Cy is too far → drop"]]],
+ ["📢 Publish@0,1|🧠 Redis pub/sub@1,1|🔌 Sub 1@2,0|🔌 Sub 2@2,1|🔌 Sub 3@2,2",[["0>1","One update"],["1>2,3,4","Fan out to every friend"],["1!","Many pushes → CPU runs out, not memory"],["","Fix: spread channels over many Redis servers"]]],
+ ["⚖️ Load balancer@0,1|📱 Clients@1,1|🔌 WS server A@2,0|🔌 WS server B@2,2",[["2!","Mark A as draining: no new connections"],["0>3","New clients go to B"],["1>3","Old clients move to B over time"],["2-","A is empty → remove it safely"]]]],
+[["🗺️ Pre-rendered tiles@0,1|🌍 CDN@1,1|📱 Phone@2,1",[["0>1","Render once, store"],["1>2","The same tile for everyone, from nearby"],["2>1","Pan → fetch the next tile from the CDN"]]],
+ ["🛣️ Whole road graph (too big)@0,1|🧩 Routing tile A@1,0|🧩 Tile B@2,0|🧩 Tile C@3,0",[["0!","Can't fit in memory"],["1+ 2+ 3+","Split into tiles"],["1>2","A route loads only the tiles it crosses"],["2>3",""]]],
+ ["🏠 Start (local streets)@0,1|🛣️ Highway tiles@2,0|🏢 End (local streets)@4,1|🧩 Thousands of local tiles@2,2",[["0>3","Only local tiles? Thousands to load"],["3!","Too slow"],["0>1","Hop up to the highway level"],["1>2","A few big tiles, then local streets at the end"]]],
+ ["📍 GPS points@0,1|📦 Batch on phone@1,1|☁️ Server@2,1",[["0>1","Collect a point every second"],["1>2","Send one batch every 15 s"],["1+","Saves battery and data"]]],
+ ["🖼️ Raster: pixels@0,0|📐 Vector: shapes@0,2|📱 Phone@2,1",[["0>2","Big images, blurry when zoomed"],["1>2","Small math shapes; the phone draws them"],["2+","Smooth zoom, less data"]]]],
+[["🔑 user=ann@0,0|🔑 user=bob@0,2|📜 Partition 0@2,0|📜 Partition 1@2,2|⚙️ Consumer@3,1",[["0>2","hash(ann) → partition 0, always"],["1>3","bob → partition 1"],["0>2","Ann's next event: same partition, stays in order"],["2>4","Read in order"]]],
+ ["📜 P0@0,0|📜 P1@0,1|📜 P2@0,2|⚙️ C1@2,0|⚙️ C2@2,1|⚙️ C3@2,2|😴 C4 (idle)@3,1",[["0>3 1>4 2>5","Each partition → one consumer in the group"],["6!","The extra consumer gets nothing"],["","Same with 10 partitions and 15 consumers: 5 sit idle"]]],
+ ["✍️ Producer@0,1|👑 Leader@1,1|📄 Follower 1@2,0|📄 Follower 2@2,2",[["0>1","Send a message"],["1>2,3","Copy to followers"],["2>1 3>1","Both confirm"],["1>0","ACK=all: only now the producer hears 'ok'. Safest, slowest"]]],
+ ["📜 Broker@0,1|⚙️ Fast consumer@2,0|🐢 Slow consumer@2,2",[["1>0","Fast: 'give me 500'"],["0>1","Big batch"],["2>0","Slow: 'give me 10'"],["0>2","Everyone reads at their own pace"]]],
+ ["✍️ Writes@0,1|📜 Append to the end@1,1|🧠 OS page cache@2,1|💾 Disk@3,1",[["0>1","Always write at the end of the log"],["1>2","Buffered in memory"],["2>3","Written to disk in order: fast"]]],
+ ["📬 Queue@0,1|⚙️ Payment worker@1,1|🗄️ Processed IDs@1,0|💳 Charge@2,1",[["0>1","Event #77"],["1>3","Charge once"],["1>2","Remember #77"],["0>1","A retry delivers #77 again"],["1>2","Already processed → skip"]]]],
+[["⚙️ Batch job (20 s)@0,1|📡 Collector@2,1",[["1>0","Pull every 60 s… the job is already gone"],["0!","Missed"],["0+",""],["0>1","Push: the job sends its metrics before exiting"]]],
+ ["📈 Millions of points/s@0,1|🐢 Relational DB@2,0|⏱️ Time-series DB@2,2",[["0>1","Row-by-row inserts, heavy indexes"],["1!","Can't keep up"],["0>2","Built for appends, compression, time ranges"],["2+",""]]],
+ ["📊 Raw (per second)@0,1|📊 Per minute@1,1|📊 Per hour@2,1|🧊 Cold storage@3,1",[["0>1","After 7 days: roll up"],["1>2","After 30 days: roll up again"],["2>3","Old data moves to cheap storage"]]],
+ ["📡 Collectors@0,1|📬 Kafka@1,1|🗄️ Time-series DB@2,1",[["2-","DB down for 5 minutes"],["0>1","Data waits in Kafka"],["2+","DB is back"],["1>2","It catches up. Nothing lost"]]],
+ ["📡 Prometheus@0,1|🖥️ Service A@2,0|🖥️ Service B@2,2",[["0>1,2","Scrape /metrics"],["2-","B goes down"],["0>2","Scrape fails → alert: B is down"]]]],
+[["🖱️ Click at 10:00:59@0,1|🐢 Network delay@1,1|📥 Arrives 10:01:03@2,1|🪟 Minute 10:00@3,0|🪟 Minute 10:01@3,2",[["0>1","The click happens at 10:00:59"],["1>2","It arrives 4 s late"],["2>3","Event time: counted in 10:00 ✓"],["4!","Processing time would put it in 10:01 ✗"]]],
+ ["🖱️ Clicks@0,1|🪟 10:00-10:01@1,0|🪟 10:01-10:02@2,0|🪟 10:02-10:03@3,0",[["0>1","Fixed buckets that don't overlap"],["0>2","Each click lands in exactly one"],["0>3",""]]],
+ ["🪟 10:00-10:05@0,0|🪟 10:01-10:06@1,1|🪟 10:02-10:07@2,2|🏆 Top 100@4,1",[["0>3","Top ads in this window"],["1>3","The window slides by 1 minute"],["2>3","Always the last 5 minutes"]]],
+ ["🖱️ Raw clicks@0,1|⚙️ Aggregator@1,0|🗄️ Raw storage@1,2|✅ Fixed counts@2,1",[["0>1 0>2","Store raw AND aggregate"],["1!","A bug is found in the counts"],["2>3","Replay the raw data with fixed code"]]],
+ ["🖱️ Events@0,1|🌊 One streaming pipeline@1,1|📊 Results@2,1|🗄️ Raw log@0,2",[["0>1","Live events"],["1>2",""],["3>1","Reprocessing = replay through the same pipeline"]]],
+ ["📬 Kafka@0,1|⚙️ Aggregator@1,1|🗄️ Results@2,0|📌 Offset@2,2",[["0>1","Read events 1-100"],["1>2","Save the counts"],["1-","Crash before saving the offset"],["1+",""],["0>1","Restart from the old offset → events 1-100 again"],["2!","Counted twice! Save both together"]]]],
+[["👤 Double-click@0,1|🖥️ Booking API@1,1|🗄️ DB (unique reservation_id)@2,1",[["0>1","Two requests, same reservation_id"],["1>2","First insert: OK"],["1>2","Second: duplicate key → rejected"],["2+","One booking"]]],
+ ["👤 Ann@0,0|👤 Bob@0,2|🗄️ Inventory (version 5)@2,1",[["2>0,1","Both read version 5"],["0>2","Ann writes: version 5 → 6 ✓"],["1>2","Bob writes 'only if version is 5' → fails"],["1!","Bob retries with fresh data"]]],
+ ["👤 Guest@0,1|⚡ Redis: 1 room left@1,0|🗄️ DB: 0 left@2,1",[["0>1","The cache says available"],["0>2","Booking checks the DB"],["2!","DB says full → rejected. The DB is the truth"]]],
+ ["🏨 Hotel 1, Deluxe@0,1|📅 Jun 1@2,0|📅 Jun 2@2,1|📅 Jun 3@2,2",[["0>1,2,3","A 3-night stay updates 3 rows in one transaction"],["1+ 2+ 3+","Each row: total rooms and reserved rooms"]]],
+ ["🏨 Reserve room@0,1|💳 Charge card@1,1|❌ Payment fails@2,1|↩️ Release room@1,0",[["0>1","Step 1 done, now step 2"],["1>2",""],["2!","It fails"],["2>3","Run the compensation"],["3>0","Undo step 1. No long locks"]]]],
+[["📱 Phone@0,0|💻 Laptop@0,2|📮 Mail server (keeps mail)@2,1",[["2>0,1","IMAP: both read the server's copy"],["0>2","Mark as read on the phone"],["2>1","The laptop shows it read too"]]],
+ ["📧 Email@0,1|🗄️ Metadata DB@2,0|☁️ Object storage (S3)@2,2",[["0>1","Small info: subject, sender, link"],["0>2","The 25 MB attachment goes to S3"]]],
+ ["👤 Ann@0,0|👤 Bob@0,2|🗂️ Shard: Ann's mailbox@2,0|🗂️ Shard: Bob's mailbox@2,2",[["0>2","All of Ann's queries go to one place"],["1>3","Bob's go to another"],["2+ 3+","No cross-shard queries"]]],
+ ["📥 New email@0,1|📗 Read table@2,0|📕 Unread table@2,2|👤 'Show unread'@3,2",[["0>2","New mail lands in the unread table"],["3>2","'Show unread' = read one small table"],["2>1","Open it → move it to the read table"]]],
+ ["📤 New IP@0,1|📮 Gmail@2,1|🗑️ Spam folder@3,2",[["0>1","Sends 1M emails on day one"],["1>2","Unknown IP → spam"],["0>1","Warm-up: small volume, grow daily"],["1+","Builds reputation"]]]],
+[["📦 Upload photo.jpg@0,1|📇 Metadata (name, size, owner)@2,0|💾 Data (the bytes)@2,2",[["0>1","Small, changes often, needs queries"],["0>2","Big, never changes"],["1+ 2+","Each scales its own way"]]],
+ ["📦 Object@0,1|🧩 8 data pieces@1,0|🛟 4 parity pieces@1,2|💾 12 disks@3,1",[["0>1,2","Split into 8 pieces + 4 parity pieces"],["1>3 2>3","Spread out: any 4 can be lost"],["3+","1.5× space instead of 3×, but more CPU"]]],
+ ["📄 Tiny files@0,1|📼 One big file@1,1|📇 Lookup: id → file, offset@2,1",[["0>1","Append many small objects into one big file"],["1>2","Remember where each one starts"],["2+","No wasted blocks or inodes"]]],
+ ["🎬 5 GB file@0,1|🧩 Part 1@1,0|🧩 Part 2@1,1|🧩 Part 3@1,2|☁️ Storage@3,1",[["0>1,2,3","Split into parts"],["1>4 2>4 3>4","Upload in parallel"],["2!","Part 2 fails"],["2>4","Retry only part 2"],["4+","Storage joins the parts"]]],
+ ["💾 Replica A ✓@0,0|💾 Replica B@0,2|📖 Read@2,1",[["2>1","Read B: checksum doesn't match"],["1!","Corrupted (bit rot)!"],["2>0","Read from A instead"],["0>1","Repair B"],["1+",""]]]],
+[["📊 SQL: 25M rows@0,1|🔎 'What's my rank?'@2,1",[["1>0","Count everyone with a higher score…"],["0!","Scans millions of rows while scores change every second"],["","Use a sorted set instead"]]],
+ ["🔎 Find score@0,0|🔝 Level 3 (express)@1,0|🪜 Level 2@1,1|📋 Level 1 (all players)@1,2",[["0>1","Start on the top 'express lane'"],["1>2","Drop down a level"],["2>3","Land on the spot"],["3+","O(log n), like binary search"]]],
+ ["🧠 Shard 1@0,0|🧠 Shard 2@0,1|🧠 Shard 3@0,2|🔀 Merge@2,1|🏆 Global top 10@3,1",[["0>3 1>3 2>3","Ask each shard for its top 10"],["3>4","Merge the 30 → best 10"]]],
+ ["📱 Player's app@0,1|🎮 Game server@1,0|🏆 Leaderboard@2,1",[["0>2","Sending the score directly?"],["2!","Cheaters could send 9,999,999"],["2+",""],["0>1","Report the match instead"],["1>2","The server checks it, then updates"]]],
+ ["🧑 Ann: 500 at 10:01@0,0|🧑 Bob: 500 at 10:05@0,2|🏆 Rank@2,1",[["0>2","Ann got there first → ranks higher"],["1>2","Bob after"]]]],
+[["👤 Pay ×2@0,1|💳 Payment service@1,1|🗄️ Keys seen@1,0|🏦 PSP@2,1",[["0>1","Request with key abc"],["1>3","Charge once"],["0>1","Same key abc again"],["1>2","Seen before → return the first result, no charge"]]],
+ ["💳 Payment service@0,1|🏦 PSP@2,1",[["0>1","Charge, key abc"],["1!","Timeout… did it work?"],["0>1","Retry with the SAME key abc"],["1>0","PSP: already done → here's the result"],["1+",""]]],
+ ["👤 Buyer@0,0|📒 Ledger@1,1|🏪 Seller@2,0",[["0>1","Buyer −$10 (debit)"],["1>2","Seller +$10 (credit)"],["1+","Sum = 0 → nothing lost or created"]]],
+ ["👤 Customer@0,1|🏦 PSP's payment page@1,0|🖥️ Your server@2,1",[["0>1","Card typed on the PSP's page"],["1>2","You only get a token"],["2+","No card data on your servers"]]],
+ ["📬 Queue@0,1|⚙️ Worker@1,1|☠️ Dead letter queue@2,1",[["0>1","Try"],["1!","Fails… retry after 1 s, 2 s, 4 s…"],["1>2","Still failing → park it for a human to inspect"]]],
+ ["📒 Our ledger@0,0|🏦 PSP settlement file@0,2|🔍 Nightly compare@1,1|⚠️ Mismatch@2,1",[["0>2 1>2","Compare"],["2>3","Flag differences"],["3!","Fix them by hand or automatically"]]]],
+[["📜 Event 1: +100@0,0|📜 Event 2: −30@1,0|📜 Event 3: +50@2,0|💰 Balance on Mar 3: 70@1,1",[["0>1","Replay events in order"],["1>3","Stop at Mar 3 → 70"],["3+","Any past balance, provable"]]],
+ ["👛 Ann (shard 1)@0,1|🧭 Coordinator@1,0|👛 Bob (shard 2)@2,1",[["0>2","−$10 here, +$10 there. Two machines!"],["1>0,2","Needs a coordinated transaction (TC/C or Saga)"],["0+ 2+","Both happen, or neither"]]],
+ ["🧭 Coordinator@1,0|🗄️ DB A@0,1|🗄️ DB B@2,1",[["0>1,2","Prepare: lock the rows"],["1! 2!","Waiting… locked"],["0-","The coordinator crashes → locks stuck"]]],
+ ["📩 Command: 'move $50'@0,1|✅ Validate@1,1|📜 Event: '$50 moved'@2,1|❌ Rejected@1,2",[["0>1","A request"],["1>2","Valid → it becomes an event (a fact)"],["1>3","Invalid → no event"]]],
+ ["📸 Snapshot at event 1M@0,1|📜 Events after it@1,1|💰 Current state@2,1",[["0>1","Start from the snapshot"],["1>2","Replay only the newer events"]]]],
+[["📬 Orders@0,1|⚙️ One thread, own CPU core@1,1|📗 Order book@2,1",[["0>1","No locks, no switching between threads"],["1>2","Same input order → same result"]]],
+ ["🗺️ Map: id → order@0,0|🔗 Order A@1,1|🔗 Order B (cancel)@2,1|🔗 Order C@3,1",[["0>2","Find B instantly through the map"],["2-","Unlink B"],["1>3","A now points to C. O(1)"]]],
+ ["📥 Orders@0,1|🔢 Sequencer@1,1|⚙️ Matching engine@2,1|💾 Event log@2,2",[["0>1","Each order gets #1, #2, #3…"],["1>2","Processed in exactly that order"],["1>3","Logged → can be replayed"]]],
+ ["🟢 Buy $100 at 9:00@0,0|🟢 Buy $100 at 9:01@0,2|🔴 Sell $100@2,1",[["2>0","Same price → earliest order fills first"],["2>1","Then the next one"]]],
+ ["🔢 Sequencer@0,1|⚙️ Primary engine@2,0|⚙️ Warm backup@2,2",[["0>1,2","Both get the same events"],["1-","The primary dies"],["2+","The backup has identical state → takes over"]]],
+ ["📈 Market data@0,1|🏦 Trader A@2,0|🏦 Trader B@2,1|🏦 Trader C@2,2",[["0>1,2,3","Multicast: everyone at the same moment"],["1+ 2+ 3+","No one gets a head start"]]]]
+];
+U.forEach((u,i)=>{u.big=BIG[i];console.assert(D[i]&&D[i].length===u.q.length,"diagram count unit "+(i+1));u.q.forEach((q,j)=>{if(D[i]&&D[i][j])q.d={n:D[i][j][0],s:D[i][j][1]}})});
+
+// --- animated diagrams ---
+// Spec: n = "emoji Label@col,row|..." ("~" prefix = hidden until shown). s = [[ops, caption]].
+// ops (space separated): "0>1" or "0>1,2" sends a dot along the arrow; "2!" problem (red); "2+" good/appear (green); "2-" down/dead.
+function parseDiagram(d){
+  const N=d.n.split("|").map((s,i)=>{const m=s.match(/@(\d),(\d)$/),lab=s.replace(/@\d,\d$/,"").replace(/^~/,"");
+    return {hid:s[0]==="~",em:lab.split(" ")[0],txt:lab.split(" ").slice(1).join(" "),c:m?+m[1]:i,r:m?+m[2]:0}});
+  const S=d.s.map(([ops,cap])=>({cap,ops:ops.split(" ").filter(Boolean).map(t=>{
+    let m=t.match(/^(\d+)>([\d,]+)$/);if(m)return {f:+m[1],to:m[2].split(",").map(Number)};
+    m=t.match(/^(\d+)([!+-])$/);if(!m)throw Error("bad op "+t);return {n:+m[1],k:m[2]}})}));
+  return {N,S};
+}
+function wrap(t,w){const out=[];let line="";for(const word of t.split(" ")){if((line+" "+word).trim().length>w&&line){out.push(line);line=word}else line=(line+" "+word).trim()}if(line)out.push(line);return out.slice(0,3)}
+function diagram(host,d){
+  const {N,S}=parseDiagram(d),W=150,H=100;
+  N.forEach(n=>{n.x=n.c*W+W/2;n.y=n.r*H+H/2});
+  const vw=(Math.max(...N.map(n=>n.c))+1)*W,vh=(Math.max(...N.map(n=>n.r))+1)*H;
+  const edges={};
+  const geo=(a,b)=>{const A=N[a],B=N[b],dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1;
+    // curve the arrow if a straight line would cross another box
+    const hit=N.some((n,k)=>{if(k===a||k===b)return false;const t=((n.x-A.x)*dx+(n.y-A.y)*dy)/(L*L);if(t<=0||t>=1)return false;return Math.hypot(A.x+t*dx-n.x,A.y+t*dy-n.y)<45});
+    const o=hit?55:0,cx=(A.x+B.x)/2-dy/L*o,cy=(A.y+B.y)/2+dx/L*o;return `M${A.x},${A.y} Q${cx},${cy} ${B.x},${B.y}`};
+  S.forEach(s=>s.ops.forEach(o=>o.to&&o.to.forEach(t=>{const k=Math.min(o.f,t)+"-"+Math.max(o.f,t);edges[k]=edges[k]||geo(Math.min(o.f,t),Math.max(o.f,t))})));
+  host.innerHTML=`<div class="dg-h"><span>👀 See it happen</span><button class="btn ghost sm">↻ Replay</button></div>
+  <div style="overflow-x:auto"><svg viewBox="0 0 ${vw} ${vh}" style="min-width:${Math.round(vw*.8)}px" role="img" aria-label="Animated diagram; steps are listed below">
+  ${Object.entries(edges).map(([k,p])=>`<path class="ed" data-k="${k}" d="${p}"/>`).join("")}
+  ${N.map((n,i)=>`<g class="nd" data-n="${i}"><rect x="${n.x-68}" y="${n.y-40}" width="136" height="80" rx="10"/>
+   <text class="em" x="${n.x}" y="${n.y-12}">${esc(n.em)}</text>${wrap(n.txt,16).map((l,j)=>`<text x="${n.x}" y="${n.y+9+j*15}">${esc(l)}</text>`).join("")}</g>`).join("")}
+  </svg></div><ol aria-live="polite"></ol>`;
+  const svg=host.querySelector("svg"),ol=host.querySelector("ol"),still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let timer,run=0;
+  const node=i=>svg.querySelector(`[data-n="${i}"]`);
+  const dot=(f,t)=>{const a=Math.min(f,t),b=Math.max(f,t),p=svg.querySelector(`[data-k="${a}-${b}"]`),L=p.getTotalLength(),rev=f>t;
+    p.classList.add("on");const c=document.createElementNS("http://www.w3.org/2000/svg","circle");c.setAttribute("r",7);svg.appendChild(c);
+    const t0=performance.now(),dur=still?1:850;
+    (function fr(now){const x=Math.min(1,(now-t0)/dur),pt=p.getPointAtLength(L*(rev?1-x:x));c.setAttribute("cx",pt.x);c.setAttribute("cy",pt.y);
+      if(x<1)requestAnimationFrame(fr);else{setTimeout(()=>c.remove(),250);if(N[t].hid)node(t).classList.remove("hid")}})(t0)};
+  const play=()=>{clearTimeout(timer);const me=++run;ol.innerHTML="";
+    svg.querySelectorAll(".on").forEach(e=>e.classList.remove("on"));
+    N.forEach((n,i)=>{node(i).setAttribute("class","nd"+(n.hid?" hid":""))});
+    let i=0;const step=()=>{if(me!==run||!host.isConnected||i>=S.length)return;const s=S[i++];
+      s.ops.forEach(o=>{if(o.to)o.to.forEach(t=>dot(o.f,t));else{const g=node(o.n).classList;
+        if(o.k==="+"){g.remove("hid","dead","bad");g.add("good")}else if(o.k==="!")g.add("bad");else g.add("dead")}});
+      ol.querySelectorAll(".cur").forEach(e=>e.classList.remove("cur"));
+      if(s.cap){const li=document.createElement("li");li.className="cur";li.textContent=s.cap;ol.appendChild(li)}
+      timer=setTimeout(step,still?300:1300+(s.cap||"").length*22)};
+    step()};
+  host.querySelector("button").onclick=play;play();
+}
+
+// --- self-check ---
+U.forEach((u,i)=>{console.assert(u.q.length>=4&&u.ex&&u.learn.length&&u.big,"unit "+i);u.q.forEach((q,j)=>{console.assert(q.o.length>=3&&q.why&&q.d,"q "+i+"."+j);
+  if(q.d){const {N,S}=parseDiagram(q.d),ok=x=>x>=0&&x<N.length;S.forEach(s=>s.ops.forEach(o=>console.assert(o.to?ok(o.f)&&o.to.every(ok):ok(o.n),"diagram index q "+(i+1)+"."+(j+1))))}})});
+
+// --- state ---
+const KEY="sdq-v1";
+const S=Object.assign({xp:0,stars:{},boxes:{},streak:0,last:""},JSON.parse(localStorage.getItem(KEY)||"{}"));
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const today=()=>new Date().toISOString().slice(0,10);
+const DAY=864e5, GAPS=[0,1,3,7,16,35]; // Leitner box → days until next review
+function touchStreak(){const t=today();if(S.last===t)return;const y=new Date(Date.now()-DAY).toISOString().slice(0,10);S.streak=S.last===y?S.streak+1:1;S.last=t;save()}
+function grade(id,ok){const b=S.boxes[id]||{box:0};b.box=ok?Math.min(b.box+1,GAPS.length-1):0;b.due=Date.now()+GAPS[b.box]*DAY;S.boxes[id]=b}
+const dueIds=()=>Object.entries(S.boxes).filter(([,b])=>b.due<=Date.now()).map(([id])=>id);
+const level=()=>Math.floor(Math.sqrt(S.xp/50))+1, lvlXp=l=>50*(l-1)**2;
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const app=document.getElementById("app");
+let keyHandler=null;
+document.addEventListener("keydown",e=>keyHandler&&keyHandler(e));
+
+function home(){
+  keyHandler=null;
+  const L=level(),pct=Math.min(100,(S.xp-lvlXp(L))/(lvlXp(L+1)-lvlXp(L))*100);
+  const next=U.findIndex((_,i)=>!S.stars[i]);
+  const due=dueIds().length;
+  app.innerHTML=`<header><h1>System Design Quest</h1><div class="stats">
+  <span class="pill">Level ${L}</span><span class="pill">${S.xp} XP</span><span class="pill">🔥 ${S.streak} day streak</span>
+  <span class="pill">⭐ ${Object.values(S.stars).reduce((a,b)=>a+b,0)} of ${U.length*3} stars</span></div></header>
+  <div class="bar"><i style="width:${pct}%"></i></div>
+  <div class="card"><b>How to play</b> · pick any unit below (the gold one is next)
+  <div class="steps"><div><b>📖</b>1. Learn: short slides, one idea at a time</div><div><b>🎯</b>2. Quiz: answer, then watch an animated diagram of why</div><div><b>🗣️</b>3. Explain it in your own words, then compare</div><div><b>🔁</b>4. Review: missed questions come back later so you don't forget</div></div>
+  <div class="legend"><span><b>What the stars mean:</b> each unit has 3 stars to earn.</span>
+  <span>⭐ Got at least 60% of the quiz right</span><span>⭐ Got the whole quiz right</span><span>⭐ Explained at least 60% of the key points</span>
+  <span class="mute">☆ = not earned yet. Replay a unit anytime to earn missing stars; your best result is kept.</span></div>
+  <div class="row"><button class="btn" id="rev" ${due?"":"disabled style=opacity:.5"}>Review ${due} due question${due===1?"":"s"}</button>
+  ${next>=0?`<button class="btn ghost" id="nx">Continue: ${esc(U[next].t)}</button>`:""}</div></div>
+  ${WORLDS.map((w,wi)=>`<h3>World ${wi+1} · ${w}</h3><div class="grid">${U.map((u,i)=>u.w!==wi?"":`<button class="tile ${i===next?"next":""}" data-u="${i}"><small>Unit ${i+1}${i===next?" · up next":""}</small>${esc(u.t)}<div class="status">${S.stars[i]==null?"Not started":`<span class="st">${"★".repeat(S.stars[i])}${"☆".repeat(3-S.stars[i])}</span> ${S.stars[i]}/3 stars`}</div></button>`).join("")}</div>`).join("")}
+  <p class="mute" style="margin-top:24px">Content follows the chapters of <a href="https://github.com/liquidslr/system-design-notes" target="_blank" rel="noopener">liquidslr/system-design-notes</a>. Progress saves in this browser. <button class="btn ghost" id="reset" style="padding:4px 10px;font-size:13px">Reset progress</button></p>`;
+  app.querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>learn(+b.dataset.u));
+  if(next>=0)document.getElementById("nx").onclick=()=>learn(next);
+  document.getElementById("rev").onclick=()=>due&&review();
+  document.getElementById("reset").onclick=()=>{if(confirm("Erase all progress?")){localStorage.removeItem(KEY);location.reload()}};
+}
+
+function learn(i,k=0){
+  const u=U[i],n=u.learn.length,last=k===n-1;scrollTo(0,0);
+  app.innerHTML=`<div class="card"><small class="mute">Unit ${i+1} · ${WORLDS[u.w]} · Step 1 of 3: Learn</small><h2>${esc(u.t)}</h2>
+  ${k===0?`<div class="bigidea">💡 <b>Big idea:</b> ${esc(u.big)}</div>`:""}
+  <div class="dots" aria-label="Slide ${k+1} of ${n}">${u.learn.map((_,x)=>`<i class="${x<=k?"on":""}"></i>`).join("")}</div>
+  <p class="slide">${esc(u.learn[k])}</p>
+  <p class="mute">Ask yourself: <i>what would break without this?</i>${last?` · Want more? <a href="${REPO+u.dir}" target="_blank" rel="noopener">Full chapter notes</a>`:""}</p>
+  <div class="row"><button class="btn" id="go">${last?"Start quiz →":"Next →"}</button>${k?`<button class="btn ghost" id="prev">← Back</button>`:""}<button class="btn ghost" id="back">Map</button>${last?"":`<button class="btn ghost" id="skip">Skip to quiz</button>`}</div></div>`;
+  const startQuiz=()=>quiz(u.q.map((q,j)=>({u:i,j})),{unit:i});
+  document.getElementById("go").onclick=()=>last?startQuiz():learn(i,k+1);
+  if(k)document.getElementById("prev").onclick=()=>learn(i,k-1);
+  if(!last)document.getElementById("skip").onclick=startQuiz;
+  document.getElementById("back").onclick=home;
+  document.getElementById("go").focus();
+  keyHandler=e=>{if(e.key==="ArrowRight")document.getElementById("go").click();if(e.key==="ArrowLeft"&&k)learn(i,k-1)};
+}
+
+// items: [{u,j}], ctx: {unit} for a unit run, {review:true} for review
+function quiz(items,ctx){
+  items=ctx.review?shuffle(items):items;
+  let k=0,right=0;
+  const show=()=>{
+    if(k>=items.length)return ctx.review?done(right,items.length,ctx):explain(ctx.unit,right,items.length);
+    const {u,j}=items[k],q=U[u].q[j],opts=shuffle(q.o.map((t,x)=>({t,ok:x===0})));
+    scrollTo(0,0);
+    app.innerHTML=`<div class="card"><small class="mute">${ctx.review?"Review · "+esc(U[u].t):"Unit "+(u+1)+" · Step 2 of 3: Quiz"} · ${k+1}/${items.length}</small>
+    <div class="bar"><i style="width:${k/items.length*100}%"></i></div><h2 style="font-size:19px">${esc(q.q)}</h2>
+    <div id="opts">${opts.map((o,x)=>`<button class="opt" data-x="${x}"><kbd>${x+1}</kbd>${esc(o.t)}</button>`).join("")}</div><div id="fb"></div></div>`;
+    const pick=x=>{
+      const bs=app.querySelectorAll(".opt");if(bs[0].disabled)return;
+      bs.forEach((b,y)=>{b.disabled=true;if(opts[y].ok)b.classList.add("ok")});
+      const ok=opts[x].ok;if(!ok)bs[x].classList.add("bad");else right++;
+      grade(u+"."+j,ok);S.xp+=ok?10:2;save();
+      document.getElementById("fb").innerHTML=`<div class="why ${ok?"ok":"bad"}"><b>${ok?"✅ Correct.":"❌ Not quite."}</b> ${esc(q.why)}</div><div class="dg" id="dg"></div><div class="row"><button class="btn" id="nq">Next → <span class="mute" style="color:#0b0e1a99">(Enter)</span></button></div>`;
+      if(q.d)diagram(document.getElementById("dg"),q.d);
+      document.getElementById("nq").onclick=()=>{k++;show()};document.getElementById("nq").focus();
+    };
+    app.querySelectorAll(".opt").forEach(b=>b.onclick=()=>pick(+b.dataset.x));
+    keyHandler=e=>{const n=+e.key;if(n>=1&&n<=opts.length&&!app.querySelector(".opt").disabled)pick(n-1)};
+  };
+  show();
+}
+
+function explain(i,right,total){
+  keyHandler=null;const u=U[i];scrollTo(0,0);
+  app.innerHTML=`<div class="card"><small class="mute">Unit ${i+1} · Step 3 of 3: Explain it in your own words</small><h2 style="font-size:19px">${esc(u.ex.p)}</h2>
+  <p class="mute">Type as if you're talking to an interviewer. No peeking. Short is fine.</p>
+  <textarea id="ta" placeholder="My explanation…"></textarea><div class="row"><button class="btn" id="chk">Compare with key points</button></div><div id="kp"></div></div>`;
+  document.getElementById("ta").focus();
+  document.getElementById("chk").onclick=()=>{
+    document.getElementById("chk").remove();
+    document.getElementById("kp").innerHTML=`<h3>Tick each point you actually covered</h3>${u.ex.pts.map((p,x)=>`<label class="pt"><input type="checkbox" data-p="${x}"> ${esc(p)}</label>`).join("")}<div class="row"><button class="btn" id="fin">Finish unit</button></div>`;
+    document.getElementById("fin").onclick=()=>{
+      const got=app.querySelectorAll("[data-p]:checked").length,frac=got/u.ex.pts.length;
+      const stars=(right===total?1:0)+(right/total>=.6?1:0)+(frac>=.6?1:0);
+      S.stars[i]=Math.max(S.stars[i]||0,stars);S.xp+=got*5;touchStreak();save();
+      done(right,total,{unit:i,got,pts:u.ex.pts.length,stars,s:[right/total>=.6,right===total,frac>=.6]});
+    };
+  };
+}
+
+function done(right,total,ctx){
+  keyHandler=null;if(ctx.review){touchStreak();}scrollTo(0,0);
+  const nxt=ctx.unit!=null&&ctx.unit<U.length-1?ctx.unit+1:null;
+  app.innerHTML=`<div class="card" style="text-align:center"><p class="big">${ctx.review?"🧠":"★".repeat(ctx.stars)+"☆".repeat(3-ctx.stars)}</p>
+  <h2>${ctx.review?"Review done":"Unit complete"}</h2><p>Quiz: <b>${right}/${total}</b>${ctx.got!=null?` · Explained: <b>${ctx.got}/${ctx.pts}</b> key points`:""}</p>
+  ${ctx.s?`<ul class="chk">${["Got at least 60% of the quiz right","Got the whole quiz right","Explained at least 60% of the key points"].map((t,x)=>`<li>${ctx.s[x]?"⭐":"☆"} ${t}</li>`).join("")}</ul>`:""}
+  <p class="mute">${right<total?"Missed questions are waiting in Review now.":"Clean run. These come back later at longer gaps."}</p>
+  <div class="row" style="justify-content:center">${nxt!=null?`<button class="btn" id="nu">Next unit →</button>`:""}<button class="btn ghost" id="hm">Map</button>${ctx.unit!=null?`<button class="btn ghost" id="again">Retry unit</button>`:""}</div></div>`;
+  document.getElementById("hm").onclick=home;
+  if(nxt!=null)document.getElementById("nu").onclick=()=>learn(nxt);
+  if(ctx.unit!=null)document.getElementById("again").onclick=()=>learn(ctx.unit);
+}
+
+function review(){
+  const items=dueIds().slice(0,15).map(id=>{const [u,j]=id.split(".").map(Number);return {u,j}}).filter(x=>U[x.u]&&U[x.u].q[x.j]);
+  quiz(items,{review:true});
+}
+home();
+</script>
+</body>
+</html>
